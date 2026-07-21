@@ -12,11 +12,25 @@
 | **Client Web** | Page publique, sans login, où le visiteur pose des questions sur les produits et le stock, et lit la réponse de l'IA. |
  
 **Répartition de l'équipe :**
-- Moi : Serveur MCP, Service IA, Client Web.
-- Ma binôme : Backoffice, Base de données.
+- Anil : Serveur MCP, Service IA, Client Web.
+- Marie : Backoffice, Base de données.
 - Product API : fourni, codé par personne.
+
 ## 2. Comment les services communiquent
- 
+
+```mermaid
+flowchart TD
+    Visiteur([Visiteur public]) --> ClientWeb[Client Web]
+    ClientWeb -->|REST : 1 question / 1 reponse| ServiceIA[Service IA + agents]
+    ServiceIA -->|MCP via Streamable HTTP| MCP[Serveur MCP]
+    MCP -->|HTTP read-only : produits| ProductAPI[Product API externe - Docker, read-only]
+    MCP -->|lecture : stock| DB[(Base de donnees)]
+    Staff([Employe / Admin]) -->|login session| Backoffice[Backoffice - REST + HTML/CSS/JS]
+    Backoffice -->|SQLAlchemy| DB
+```
+
+Flux détaillé (légende du diagramme) :
+
 - **Produits :** Client Web → Service IA → Serveur MCP → Product API
 - **Stock :** Service IA → Serveur MCP → Base de données
 - **Interne :** Employés → Backoffice → Base de données
