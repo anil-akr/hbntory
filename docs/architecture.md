@@ -12,8 +12,8 @@
 | **Client Web** | Page publique, sans login, où le visiteur pose des questions sur les produits et le stock, et lit la réponse de l'IA. |
  
 **Répartition de l'équipe :**
-- Anil : Serveur MCP, Service IA, Client Web.
-- Marie : Backoffice, Base de données.
+- Anil : Serveur MCP, Service IA.
+- Marie : Backoffice, Base de données, Client Web (front).
 - Product API : fourni, codé par personne.
 
 ## 2. Comment les services communiquent

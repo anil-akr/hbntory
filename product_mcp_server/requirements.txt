@@ -1,0 +1,2 @@
+# Product MCP server dependency (version validated on 2026-07-22).
+mcp==1.28.1

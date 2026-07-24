@@ -1,0 +1,7 @@
+{
+  "branches": {
+    "Paris Centre": {"HB-LAP-1001": 12, "HB-MON-2101": 8, "HB-DCK-3001": 25, "HB-CAM-5101": 4},
+    "Lyon Part-Dieu": {"HB-LAP-1001": 5, "HB-SSD-7101": 40, "HB-PWR-8101": 30, "HB-DCK-3001": 10},
+    "Marseille Prado": {"HB-LAP-1001": 3, "HB-MON-2101": 6, "HB-CAM-5101": 9, "HB-SSD-7101": 15}
+  }
+}

@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Environnements virtuels
+.venv/
+venv/
+
+# Base de données locale (développement)
+*.db
+*.sqlite3
+
+# Variables d'environnement
+.env
