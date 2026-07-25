@@ -13,6 +13,8 @@ Run (from the repo root, with the venv active):
     python -m ai_service.app
 The API key is read automatically from the .env file at the repo root.
 """
+import os
+
 from flask import Flask, jsonify, request
 
 from ai_service.agent import ask
@@ -61,4 +63,5 @@ def ask_endpoint():
 
 if __name__ == "__main__":
     # Development server. The client web page will POST to /ask.
-    app.run(host="127.0.0.1", port=8001)
+    # Binds to 127.0.0.1 for local dev; docker-compose sets AI_SERVICE_HOST=0.0.0.0.
+    app.run(host=os.environ.get("AI_SERVICE_HOST", "127.0.0.1"), port=8001)

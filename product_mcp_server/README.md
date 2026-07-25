@@ -33,9 +33,10 @@ lu depuis l'inventaire.
 **`stock_in_branch(branch)`** — ce qu'une boutique a en stock.
 - Sortie : `{ "branch": ..., "products": [ { sku, quantity }, ... ] }`
 
-**`check_shopping_list(items)`** — quelles boutiques couvrent une liste d'achats.
+**`check_shopping_list(items)`** — où acheter une liste : une boutique, ou plusieurs combinées.
 - Entrée : `items` = liste de `{ "sku": ..., "quantity": ... }`
-- Sortie : `{ "fully_satisfied_by": [boutiques], "per_branch": [détail par boutique] }`
+- Sortie : `{ "fully_satisfied_by": [boutiques qui suffisent seules], "satisfiable": bool, "plan": [{ branch, take: {sku: qté} }], "missing": {sku: manque} }`
+- `plan` propose une **combinaison de boutiques** (heuristique gloutonne) quand aucune ne suffit à elle seule ; `missing` liste ce qui manque si la liste n'est pas satisfaisable sur tout le réseau.
 
 > ⚠️ Les outils stock lisent `stock_data.json`, qui **remplace temporairement**
 > la base d'inventaire partagée (côté Backoffice). À l'intégration, seule la

@@ -1,0 +1,36 @@
+# Orchestrates the two services owned by this part of the project:
+#   - mcp-server : the product MCP server (5 tools).
+#   - ai-service : the AI query service (POST /ask), which talks to mcp-server.
+#
+# The external Product API is provided separately (its own asset-pack compose)
+# and runs on the host; mcp-server reaches it through host.docker.internal.
+#
+# Before running, create a .env file at the repo root with your Groq key:
+#   GROQ_API_KEY=gsk_...
+# Then: docker compose up --build
+services:
+  mcp-server:
+    build:
+      context: .
+      dockerfile: product_mcp_server/Dockerfile
+    environment:
+      # The provided Product API listens on the host, port 5001.
+      PRODUCT_API_URL: "http://host.docker.internal:5001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8000:8000"
+
+  ai-service:
+    build:
+      context: .
+      dockerfile: ai_service/Dockerfile
+    environment:
+      # Reach the MCP server by its Compose service name.
+      MCP_SERVER_URL: "http://mcp-server:8000/mcp"
+    env_file:
+      - .env  # provides GROQ_API_KEY
+    ports:
+      - "8001:8001"
+    depends_on:
+      - mcp-server

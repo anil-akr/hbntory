@@ -36,7 +36,9 @@ REQUEST_TIMEOUT_SECONDS = 5
 STOCK_FILE = os.path.join(os.path.dirname(__file__), "stock_data.json")
 
 # The MCP server. The name is shown on the agent side.
-mcp = FastMCP("hbntory-products")
+# Bind to 127.0.0.1 for local dev; docker-compose sets MCP_HOST=0.0.0.0 so the
+# AI service container can reach this server over the Compose network.
+mcp = FastMCP("hbntory-products", host=os.environ.get("MCP_HOST", "127.0.0.1"))
 
 
 # ---------------------------------------------------------------------------
@@ -169,44 +171,88 @@ def stock_in_branch(branch: str) -> dict:
     return {"branch": branch, "products": products}
 
 
+def _coverage(stock: dict, remaining: dict) -> int:
+    """How many still-needed units a branch can provide."""
+    return sum(min(stock.get(sku, 0), quantity) for sku, quantity in remaining.items())
+
+
+def _greedy_plan(branches: dict, wanted: dict) -> list:
+    """Choose branches to visit so the whole list is covered.
+
+    Simple greedy heuristic: repeatedly go to the branch that covers the most of
+    what is still missing, until nothing is missing. Not guaranteed to be the
+    smallest possible set of branches, but easy to follow and good enough.
+    Returns [{"branch": name, "take": {sku: quantity}}, ...].
+    """
+    remaining = dict(wanted)
+    unused = dict(branches)
+    plan = []
+    while any(quantity > 0 for quantity in remaining.values()) and unused:
+        best_branch = max(unused, key=lambda name: _coverage(unused[name], remaining))
+        stock = unused.pop(best_branch)
+        if _coverage(stock, remaining) == 0:
+            break  # no remaining branch can help
+        take = {}
+        for sku, quantity in remaining.items():
+            amount = min(stock.get(sku, 0), quantity)
+            if amount > 0:
+                take[sku] = amount
+                remaining[sku] -= amount
+        plan.append({"branch": best_branch, "take": take})
+    return plan
+
+
 @mcp.tool()
 def check_shopping_list(items: list) -> dict:
-    """Check which branch(es) can satisfy a shopping list.
+    """Find where to buy a shopping list: one branch, or several combined.
 
     Argument:
     - items: list of {"sku": <sku>, "quantity": <int>} the customer wants.
 
-    Returns {"fully_satisfied_by": [branch, ...], "per_branch": [...]}:
-    - fully_satisfied_by lists the branches that alone cover every item;
-    - per_branch details, for each branch, which items it can or cannot cover.
+    Returns:
+    - fully_satisfied_by: branches that alone cover the whole list (best case);
+    - satisfiable: whether all branches together hold enough of every item;
+    - plan: when no single branch is enough, a short list of branches to visit
+      with what to buy at each (empty if one branch already works, or if the
+      list cannot be satisfied at all);
+    - missing: when not satisfiable, how many units are missing per product.
     """
     for item in items:
         if "sku" not in item or "quantity" not in item:
             raise ValueError("Each item needs a 'sku' and a 'quantity'.")
 
     branches = _load_branches()
-    per_branch = []
-    fully_satisfied_by = []
-    for branch_name, stock in branches.items():
-        lines = []
-        covers_all = True
-        for item in items:
-            available = stock.get(item["sku"], 0)
-            enough = available >= item["quantity"]
-            if not enough:
-                covers_all = False
-            lines.append(
-                {
-                    "sku": item["sku"],
-                    "wanted": item["quantity"],
-                    "available": available,
-                    "enough": enough,
-                }
-            )
-        per_branch.append({"branch": branch_name, "items": lines})
-        if covers_all:
-            fully_satisfied_by.append(branch_name)
-    return {"fully_satisfied_by": fully_satisfied_by, "per_branch": per_branch}
+    wanted = {item["sku"]: item["quantity"] for item in items}
+
+    # Branches that alone cover the whole list.
+    fully_satisfied_by = [
+        name
+        for name, stock in branches.items()
+        if all(stock.get(sku, 0) >= quantity for sku, quantity in wanted.items())
+    ]
+
+    # Can the list be satisfied at all, using every branch together?
+    total_available = {
+        sku: sum(stock.get(sku, 0) for stock in branches.values()) for sku in wanted
+    }
+    missing = {
+        sku: quantity - total_available[sku]
+        for sku, quantity in wanted.items()
+        if total_available[sku] < quantity
+    }
+    satisfiable = not missing
+
+    # Only compute a multi-branch plan when it is needed and possible.
+    plan = []
+    if satisfiable and not fully_satisfied_by:
+        plan = _greedy_plan(branches, wanted)
+
+    return {
+        "fully_satisfied_by": fully_satisfied_by,
+        "satisfiable": satisfiable,
+        "plan": plan,
+        "missing": missing,
+    }
 
 
 if __name__ == "__main__":
