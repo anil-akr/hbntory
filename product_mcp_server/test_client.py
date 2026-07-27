@@ -14,7 +14,7 @@ Then run: python -m product_mcp_server.test_client
 import asyncio
 
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client
 
 SERVER_URL = "http://127.0.0.1:8000/mcp"
 
@@ -29,7 +29,7 @@ def show_result(result):
 
 
 async def main():
-    async with streamablehttp_client(SERVER_URL) as (read, write, _):
+    async with streamable_http_client(SERVER_URL) as (read, write, _):
         async with ClientSession(read, write) as session:
             await session.initialize()
 

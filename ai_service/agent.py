@@ -20,7 +20,7 @@ import os
 
 from groq import Groq
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client
 
 MCP_SERVER_URL = os.environ.get("MCP_SERVER_URL", "http://127.0.0.1:8000/mcp")
 
@@ -104,7 +104,7 @@ async def answer_question(question: str) -> str:
     """Answer one question using the model and the MCP tools."""
     client = Groq(api_key=_get_api_key())
 
-    async with streamablehttp_client(MCP_SERVER_URL) as (read, write, _):
+    async with streamable_http_client(MCP_SERVER_URL) as (read, write, _):
         async with ClientSession(read, write) as session:
             await session.initialize()
             tools = _to_groq_tools((await session.list_tools()).tools)
