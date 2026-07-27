@@ -1,84 +1,92 @@
 # hbntory
 
-Système de gestion d'inventaire pour une entreprise de retail multi-boutiques.
-Un visiteur peut poser des questions en langage naturel sur les **produits** et
-le **stock** ; un agent IA répond en s'appuyant **uniquement** sur des outils, sans
-rien inventer.
+Système de gestion d'inventaire pour une entreprise de retail **multi-boutiques**.
+Deux faces :
 
-Ce dépôt (branche `ai-service`) contient **la partie IA du projet**. Le Backoffice,
-la base de données et le front (Client Web) sont réalisés par la binôme, sur sa
-branche. La documentation d'architecture complète est dans [`docs/`](docs/).
+- un **Backoffice** interne (authentifié) où les employés gèrent le stock de leur
+  boutique et où l'admin gère les utilisateurs ;
+- une **interface publique** où un visiteur pose des questions en langage naturel
+  sur les produits et le stock, et où un **agent IA** répond en s'appuyant
+  **uniquement** sur des outils — sans jamais inventer.
 
-## Composants de cette branche
+Les informations produit ne sont pas stockées localement : elles proviennent d'une
+**API Produit externe** (fournie). La base ne garde que l'identifiant produit (SKU).
 
-| Composant | Dossier | Rôle |
-|---|---|---|
-| **Serveur MCP produit** | [`product_mcp_server/`](product_mcp_server/) | Pont vers l'API Produit externe + accès stock. Expose 5 outils. |
-| **Service IA** | [`ai_service/`](ai_service/) | Agent (boucle d'outils) exposé en REST : `POST /ask`. |
-| Test de bout en bout | [`scripts/e2e_test.py`](scripts/e2e_test.py) | Pose une question de chaque type à l'agent. |
+## Composants
 
-Les 5 outils MCP : `list_products`, `get_product` (produits, relayés depuis l'API
-externe) et `stock_for_product`, `stock_in_branch`, `check_shopping_list` (stock).
+| Composant | Dossier | Techno | Rôle |
+|---|---|---|---|
+| **Backoffice** | [`backoffice/`](backoffice/) | FastAPI + SQLAlchemy | API interne (auth JWT, users, stock), + le front public (`index.html`) |
+| **Base de données** | `backoffice/inventory.db` | SQLite | users, boutiques, stock (par SKU) — aucun détail produit |
+| **Serveur MCP** | [`product_mcp_server/`](product_mcp_server/) | FastMCP | Pont : 5 outils (produits via l'API externe, stock via la base) |
+| **Service IA** | [`ai_service/`](ai_service/) | Flask + Groq | Agent (boucle d'outils) exposé en REST : `POST /ask` |
+| **API Produit** | *(fournie)* | — | Catalogue produit externe, lecture seule |
+
+Documentation d'architecture et décisions : [`docs/`](docs/) (`architecture.md`,
+`communication-decisions.md`, `mvp.md`).
 
 > **Architecture agnostique du modèle :** seul `ai_service/agent.py` dépend du
-> fournisseur d'IA. Le serveur MCP, ses outils et l'API REST ne changent pas si on
-> change de modèle — le projet a migré Anthropic → Gemini → **Groq** sans toucher
-> au reste.
+> fournisseur d'IA (le projet a migré Anthropic → Gemini → **Groq** sans toucher au
+> reste). Et l'IA accède au stock **uniquement** via les outils du serveur MCP —
+> jamais la base en direct.
 
 ## Prérequis
 
-1. **API Produit** (fournie, conteneur Docker de l'asset pack) lancée sur le port 5001 :
-   ```bash
-   docker compose -f /home/xom/hbntory-products-api/docker-compose.yml up -d
-   ```
-2. **Clé Groq** (gratuite, sans carte) : https://console.groq.com/keys
-   ```bash
-   cp .env.example .env      # puis colle ta clé : GROQ_API_KEY=gsk_...
-   ```
-   Le fichier `.env` est gitignoré.
+- Python 3.10+, Docker.
+- **API Produit** (asset pack fourni) lancée sur `:5001`.
+- **Clé Groq** gratuite (https://console.groq.com/keys) dans un fichier `.env`
+  à la racine : `GROQ_API_KEY=gsk_...` (le `.env` est gitignoré).
 
-## Lancer — option A : Docker Compose (recommandé)
+## Lancer la stack complète (1 terminal par service)
 
 ```bash
-docker compose up --build
-```
-Lance les deux services : le MCP (`:8000`) et le Service IA (`:8001`). Le Service IA
-interroge le MCP par le réseau Compose, et le MCP tape l'API Produit sur l'hôte.
-
-## Lancer — option B : à la main (3 terminaux)
-
-```bash
+# venv + dépendances des 3 services
 python3 -m venv .venv && source .venv/bin/activate
-pip install -r product_mcp_server/requirements.txt -r ai_service/requirements.txt
+pip install -r backoffice/requirements.txt \
+            -r product_mcp_server/requirements.txt \
+            -r ai_service/requirements.txt
 
-# terminal 1 : serveur MCP
-python -m product_mcp_server.server
-# terminal 2 : service IA
-python -m ai_service.app
+# 1. API Produit (fournie) -> :5001
+docker compose -f /home/xom/hbntory-products-api/docker-compose.yml up -d
+
+# 2. Backoffice : remplir la base une fois, puis lancer l'API -> :8000
+cd backoffice && python seed_data.py && uvicorn main:app --port 8000 ; cd ..
+#   comptes créés : admin / admin123   et   employe_paris / employe123
+#   doc interactive : http://127.0.0.1:8000/docs
+
+# 3. Serveur MCP branché sur la base du Backoffice -> :8010
+STOCK_DB_PATH="$(pwd)/backoffice/inventory.db" MCP_PORT=8010 \
+  python -m product_mcp_server.server
+
+# 4. Service IA (lit la clé depuis .env) -> :8001
+MCP_SERVER_URL="http://127.0.0.1:8010/mcp" python -m ai_service.app
+
+# 5. Front public -> :8080  (ouvrir http://127.0.0.1:8080/index.html)
+python -m http.server 8080 --directory backoffice
 ```
 
-Poser une question :
+> Le serveur MCP tourne sur `:8010` pour ne pas entrer en conflit avec le
+> Backoffice (`:8000`). Sans `STOCK_DB_PATH`, l'IA lit un stock d'exemple
+> (`product_mcp_server/stock_data.json`) et fonctionne en autonomie.
+
+### Variante Docker (Serveur MCP + Service IA seulement)
 ```bash
-curl -s -X POST http://127.0.0.1:8001/ask \
-  -H "Content-Type: application/json" \
-  -d '{"question": "Which branch has stock of HB-LAP-1001?"}'
+docker compose up --build   # MCP (:8000, interne) + Service IA (:8001)
 ```
 
 ## Tester
 
 ```bash
-# Outils MCP seuls (pas de clé requise) :
+# Outils MCP seuls (aucune clé requise)
 python -m product_mcp_server.test_client
 
-# Agent complet (démarre le MCP, pose les 4 types de questions) :
-./.venv/bin/python scripts/e2e_test.py
+# Agent complet (démarre le MCP, pose les 4 types de questions)
+python scripts/e2e_test.py
 ```
 
-## À savoir
+## Démonstration : couvre les points de l'énoncé
+- **Auth Backoffice** + **gestion du stock par un employé** (`employe_paris`, limité à sa boutique) + **gestion des utilisateurs par l'admin** (`admin`) → via `http://127.0.0.1:8000/docs`.
+- **Questions produits & stock** via le front (`:8080`) → réponses ancrées de l'agent (produit + stock).
 
-- **Le stock est un bouchon.** Les outils `stock_*` lisent
-  `product_mcp_server/stock_data.json`, qui remplace temporairement la base
-  d'inventaire partagée (côté Backoffice). À l'intégration, seule la fonction
-  `_load_branches()` change ; les outils et leurs formats restent identiques.
-- **Convention de code :** commentaires et docstrings en anglais ; documentation
-  en français.
+## Convention de code
+Commentaires et docstrings en anglais ; documentation en français.

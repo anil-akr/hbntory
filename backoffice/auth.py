@@ -1,3 +1,5 @@
+import os
+
 import jwt
 from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext
@@ -10,7 +12,7 @@ import models
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-SECRET_KEY = "une_cle_secrete_tres_securisee_a_changer"
+SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 

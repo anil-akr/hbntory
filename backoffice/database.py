@@ -4,7 +4,7 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 DATABASE_URL = "sqlite:///./inventory.db"
 
 engine = create_engine(
-    DATABASE_URL, connect_args={"check_same_thread": False}, echo=True
+    DATABASE_URL, connect_args={"check_same_thread": False}, echo=False
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
