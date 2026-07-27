@@ -61,6 +61,10 @@ python -m product_mcp_server.server
 
 # 2b. OU serveur MCP branché sur la VRAIE base du Backoffice (stock réel, lecture seule) :
 STOCK_DB_PATH=/chemin/vers/backoffice/inventory.db python -m product_mcp_server.server
+
+# Conflit avec le Backoffice (lui aussi sur :8000) ? Change le port du MCP :
+#   MCP_PORT=8010 python -m product_mcp_server.server
+#   puis lance le Service IA avec  MCP_SERVER_URL=http://127.0.0.1:8010/mcp
 ```
 
 ## Tester manuellement (preuve de test)

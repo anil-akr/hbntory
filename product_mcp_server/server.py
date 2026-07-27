@@ -39,10 +39,14 @@ REQUEST_TIMEOUT_SECONDS = 5
 STOCK_FILE = os.path.join(os.path.dirname(__file__), "stock_data.json")
 STOCK_DB_PATH = os.environ.get("STOCK_DB_PATH")
 
-# The MCP server. The name is shown on the agent side.
-# Bind to 127.0.0.1 for local dev; docker-compose sets MCP_HOST=0.0.0.0 so the
-# AI service container can reach this server over the Compose network.
-mcp = FastMCP("hbntory-products", host=os.environ.get("MCP_HOST", "127.0.0.1"))
+# The MCP server. The name is shown on the agent side. Host and port are
+# configurable: MCP_HOST (docker-compose sets 0.0.0.0), and MCP_PORT to avoid a
+# clash — e.g. run the MCP on 8010 next to the Backoffice on 8000.
+mcp = FastMCP(
+    "hbntory-products",
+    host=os.environ.get("MCP_HOST", "127.0.0.1"),
+    port=int(os.environ.get("MCP_PORT", "8000")),
+)
 
 
 # ---------------------------------------------------------------------------
