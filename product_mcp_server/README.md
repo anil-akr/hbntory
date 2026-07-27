@@ -38,10 +38,12 @@ lu depuis l'inventaire.
 - Sortie : `{ "fully_satisfied_by": [boutiques qui suffisent seules], "satisfiable": bool, "plan": [{ branch, take: {sku: qté} }], "missing": {sku: manque} }`
 - `plan` propose une **combinaison de boutiques** (heuristique gloutonne) quand aucune ne suffit à elle seule ; `missing` liste ce qui manque si la liste n'est pas satisfaisable sur tout le réseau.
 
-> ⚠️ Les outils stock lisent `stock_data.json`, qui **remplace temporairement**
-> la base d'inventaire partagée (côté Backoffice). À l'intégration, seule la
-> fonction `_load_branches()` change : les noms d'outils et les formats de sortie
-> restent identiques, donc l'agent n'est pas impacté.
+> **Source du stock (`STOCK_DB_PATH`) :** par défaut, les outils stock lisent
+> `stock_data.json` (bouchon, pour tourner en autonomie). Si la variable
+> d'environnement `STOCK_DB_PATH` pointe vers la base du Backoffice
+> (`inventory.db`), ils lisent le **vrai stock**, en **lecture seule**. Seule la
+> fonction `_load_branches()` diffère selon la source ; les noms d'outils et les
+> formats de sortie sont identiques, donc l'agent n'est jamais impacté.
 
 ## Format des réponses
 
@@ -54,8 +56,11 @@ en contenu texte** — c'est le format standard MCP, et c'est ce que lit l'agent
 # 1. L'API Produit doit tourner (depuis le dépôt du pack) :
 docker compose -f /home/xom/hbntory-products-api/docker-compose.yml up -d
 
-# 2. Le serveur MCP (depuis la racine du dépôt, venv actif) :
+# 2a. Serveur MCP avec le stock d'exemple (autonome) :
 python -m product_mcp_server.server
+
+# 2b. OU serveur MCP branché sur la VRAIE base du Backoffice (stock réel, lecture seule) :
+STOCK_DB_PATH=/chemin/vers/backoffice/inventory.db python -m product_mcp_server.server
 ```
 
 ## Tester manuellement (preuve de test)

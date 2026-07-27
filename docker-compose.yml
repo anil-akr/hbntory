@@ -16,6 +16,11 @@ services:
     environment:
       # The provided Product API listens on the host, port 5001.
       PRODUCT_API_URL: "http://host.docker.internal:5001"
+      # To read the REAL Backoffice stock instead of the JSON stand-in, mount its
+      # SQLite file (see the volumes block below) and point STOCK_DB_PATH at it:
+      # STOCK_DB_PATH: "/data/inventory.db"
+    # volumes:
+    #   - /absolute/path/to/backoffice/inventory.db:/data/inventory.db:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:

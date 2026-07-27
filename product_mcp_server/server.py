@@ -22,6 +22,7 @@ It listens over Streamable HTTP at http://127.0.0.1:8000/mcp
 """
 import json
 import os
+import sqlite3
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -32,8 +33,11 @@ from mcp.server.fastmcp import FastMCP
 PRODUCT_API_URL = os.environ.get("PRODUCT_API_URL", "http://localhost:5001")
 REQUEST_TIMEOUT_SECONDS = 5
 
-# The inventory file lives next to this module.
+# Stock data source. If STOCK_DB_PATH points to the Backoffice SQLite database,
+# the stock tools read the real inventory (read-only). Otherwise they read the
+# local stand-in file, so the AI service can still run on its own.
 STOCK_FILE = os.path.join(os.path.dirname(__file__), "stock_data.json")
+STOCK_DB_PATH = os.environ.get("STOCK_DB_PATH")
 
 # The MCP server. The name is shown on the agent side.
 # Bind to 127.0.0.1 for local dev; docker-compose sets MCP_HOST=0.0.0.0 so the
@@ -125,17 +129,50 @@ def get_product(identifier: str) -> dict:
 
 # ---------------------------------------------------------------------------
 # Stock tools — the AI reads stock through this server, never through the
-# database directly. For now the data comes from stock_data.json, which stands
-# in for the shared inventory database owned by the Backoffice. At integration
-# time only _load_branches() changes: the tool names and return shapes stay the
-# same, so the AI agent is not affected.
+# database directly. `_load_branches()` is the single source of stock data:
+# it reads the Backoffice database when STOCK_DB_PATH is set, otherwise the
+# local stand-in file. The 5 tools below only call _load_branches(), so they
+# (and the AI agent) never change when we switch the data source.
 # ---------------------------------------------------------------------------
 
 
 def _load_branches() -> dict:
-    """Load the inventory as {branch_name: {sku: quantity}}."""
+    """Load the inventory as {branch_name: {product_id: quantity}}.
+
+    Reads the real Backoffice database when STOCK_DB_PATH points to it, and
+    falls back to the local stand-in file otherwise. This is the only function
+    to change when wiring the AI to the shared inventory database.
+    """
+    if STOCK_DB_PATH:
+        return _load_branches_from_db(STOCK_DB_PATH)
+    return _load_branches_from_file()
+
+
+def _load_branches_from_file() -> dict:
+    """Load the stand-in inventory from the local JSON file."""
     with open(STOCK_FILE, "r", encoding="utf-8") as stock_file:
         return json.load(stock_file)["branches"]
+
+
+def _load_branches_from_db(db_path: str) -> dict:
+    """Read branch stock from the Backoffice SQLite database (read-only).
+
+    Joins `inventories` with `branches` to build the exact shape the tools
+    expect: {branch_name: {product_id: quantity}}. The connection is opened
+    read-only (mode=ro), so the MCP server can never modify the Backoffice data.
+    """
+    branches: dict = {}
+    connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        rows = connection.execute(
+            "SELECT b.name, i.product_id, i.quantity "
+            "FROM inventories i JOIN branches b ON b.id = i.branch_id"
+        )
+        for branch_name, product_id, quantity in rows:
+            branches.setdefault(branch_name, {})[product_id] = quantity
+    finally:
+        connection.close()
+    return branches
 
 
 @mcp.tool()

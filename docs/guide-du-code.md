@@ -133,7 +133,7 @@ Un seul fichier ; chaque fonction `@mcp.tool()` devient un **outil** appelable p
 - **`_get_json(path)`** : le **seul** point qui parle à l'API Produit. Centralise les erreurs → messages clairs : 404 « produit introuvable », autre code « API a répondu N », réseau/timeout « API injoignable ». Jamais d'échec silencieux.
 - **`list_products(search, limit)`** : liste/recherche des produits ; borne `limit` entre 1 et 100 ; ne renvoie que 5 champs utiles.
 - **`get_product(identifier)`** : détails d'un produit par SKU ou id.
-- **`_load_branches()`** : lit le stock (fichier `stock_data.json` aujourd'hui). **Seul point à changer** pour brancher la vraie base (voir §7).
+- **`_load_branches()`** : lit le stock — la **vraie base du Backoffice** si `STOCK_DB_PATH` est défini (lecture seule via `sqlite3`), sinon le fichier `stock_data.json`. C'est le **seul** endroit qui connaît la source (voir §7).
 - **`stock_for_product(sku)`** : dans quelles boutiques un produit est dispo (quantité > 0).
 - **`stock_in_branch(branch)`** : ce qu'une boutique a en stock.
 - **`check_shopping_list(items)`** : où acheter une liste. Renvoie `fully_satisfied_by` (boutiques qui suffisent seules), `plan` (combinaison de boutiques — algorithme **glouton** `_greedy_plan`), `satisfiable` et `missing`. Répond au « quelle(s) boutique(s) » (pluriel) de l'énoncé.
@@ -179,9 +179,15 @@ docker compose up --build        # MCP :8000 (interne) + Service IA :8001
 
 ## 7. L'intégration des deux parties (le point à finir)
 
-Aujourd'hui, les outils de stock du MCP lisent `stock_data.json`. Pour brancher la vraie base du Backoffice, **une seule fonction change** : `_load_branches()` dans `product_mcp_server/server.py`. Elle devra lire la table `inventories` (via SQLAlchemy ou l'API du Backoffice) et renvoyer le même format `{ boutique: { product_id: quantité } }`. Les 3 outils de stock et l'agent restent **inchangés**.
+L'intégration est **faite**. `_load_branches()` lit la base du Backoffice quand la variable `STOCK_DB_PATH` pointe vers son fichier `inventory.db` : une requête **en lecture seule** (`sqlite3`, `mode=ro`) qui joint `inventories` et `branches` et renvoie `{ boutique: { product_id: quantité } }` — le format attendu par les outils. Sans `STOCK_DB_PATH`, on reste sur le bouchon JSON. Les 5 outils et l'agent sont **inchangés**.
 
-Correspondance des identifiants : le `product_id` de la table `inventories` doit être le **même SKU** que celui de l'API Produit (ex. `HB-LAP-1001`).
+Lancer l'IA sur le vrai stock :
+```bash
+STOCK_DB_PATH=/chemin/vers/backoffice/inventory.db python -m product_mcp_server.server
+```
+Testé : lecture du vrai stock ✓ · mise à jour vue en direct ✓ · écriture impossible (lecture seule, la base de Marie n'est jamais modifiée) ✓.
+
+Correspondance à assurer : le `product_id` de la table `inventories` = le **même SKU** que l'API Produit (ex. `HB-LAP-1001`), et les **noms de boutiques** doivent coïncider avec ceux des questions.
 
 ---
 
@@ -190,6 +196,6 @@ Correspondance des identifiants : le `product_id` de la table `inventories` doit
 - [ ] **`backoffice/auth.py`** : écrit par Marie mais **pas encore poussé** → elle doit le pusher (sinon `ModuleNotFoundError`).
 - [ ] **`backoffice/requirements.txt`** : à vérifier / pousser (fastapi, uvicorn, sqlalchemy, pydantic, passlib[bcrypt], python-jose, python-multipart).
 - [ ] Résoudre le **conflit de port `:8000`** entre uvicorn (Backoffice) et le serveur MCP.
-- [ ] Brancher `_load_branches()` sur la table `inventories` (remplacer le bouchon JSON).
+- [x] **Brancher `_load_branches()` sur la table `inventories`** — ✅ fait (via `STOCK_DB_PATH`, lecture seule, testé). Il reste juste à lancer le MCP avec cette variable le jour de l'intégration.
 - [ ] Vérifier la cohérence des `product_id` / SKU entre la base et l'API Produit.
 - [ ] Optionnel : contrainte de base `CHECK quantity >= 0` (en plus de la vérification applicative) et unicité `(branch_id, product_id)`.
