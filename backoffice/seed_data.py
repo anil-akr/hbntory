@@ -1,54 +1,57 @@
 import sqlite3
+from passlib.context import CryptContext
+from database import engine, Base
+import models  # Charge tous vos modèles SQLAlchemy
 
-# Connexion à la base de données
-conn = sqlite3.connect('inventory.db')
+# 1. Création automatique des tables dans la base de données 🏗️
+Base.metadata.create_all(bind=engine)
+
+# Configuration du hachage de mot de passe 🔐
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Connexion à la base de données SQLite 🗄️
+conn = sqlite3.connect("inventory.db")
 cursor = conn.cursor()
 
-print(" Début du remplissage de la base de données...")
+# Données créées par votre binôme 📊
+data = {
+    "branches": {
+        "Paris Centre": {"HB-LAP-1001": 12, "HB-MON-2101": 8, "HB-DCK-3001": 25, "HB-CAM-5101": 4},
+        "Lyon Part-Dieu": {"HB-LAP-1001": 5, "HB-SSD-7101": 40, "HB-PWR-8101": 30, "HB-DCK-3001": 10},
+        "Marseille Prado": {"HB-LAP-1001": 3, "HB-MON-2101": 6, "HB-CAM-5101": 9, "HB-SSD-7101": 15}
+    }
+}
 
-# 1. Insertion des boutiques
-branches = ['Paris Centre', 'Lyon Part-Dieu', 'Marseille Prado']
-
-for name in branches:
+# 2. Insertion des boutiques et de leur stock 🏬📦
+for branch_name, products in data["branches"].items():
     cursor.execute("""
-        INSERT INTO branches (name) 
+        INSERT INTO branches (name)
         VALUES (?)
         ON CONFLICT(name) DO NOTHING;
-    """, (name,))
+    """, (branch_name,))
+    
+    cursor.execute("SELECT id FROM branches WHERE name = ?", (branch_name,))
+    branch_id = cursor.fetchone()[0]
+    
+    for product_id, quantity in products.items():
+        cursor.execute("""
+            INSERT INTO inventories (branch_id, product_id, quantity)
+            VALUES (?, ?, ?);
+        """, (branch_id, product_id, quantity))
 
-# 2. Insertion d'un employé rattaché à Paris Centre
-cursor.execute("SELECT id FROM branches WHERE name = 'Paris Centre'")
+# 3. Récupération de l'ID de Paris Centre pour l'employé 👤
+cursor.execute("SELECT id FROM branches WHERE name = ?", ("Paris Centre",))
 paris_id = cursor.fetchone()[0]
 
+# 4. Insertion de l'employé avec le mot de passe haché 🔑
 cursor.execute("""
     INSERT INTO users (username, password_hash, role, branch_id)
     VALUES (?, ?, ?, ?)
     ON CONFLICT(username) DO NOTHING;
-""", ('employe_paris', 'hash_factice_123', 'common', paris_id))
+""", ('employe_paris', pwd_context.hash('employe123'), 'common', paris_id))
 
-# 3. Liste des SKU demandés par ton binôme
-skus = [
-    'HB-LAP-1001',
-    'HB-MON-2101',
-    'HB-DCK-3001',
-    'HB-CAM-5101',
-    'HB-SSD-7101',
-    'HB-PWR-8101'
-]
-
-# 4. Insertion du stock (15 unités par produit et par boutique)
-cursor.execute("SELECT id FROM branches")
-branch_ids = [b[0] for b in cursor.fetchall()]
-
-for b_id in branch_ids:
-    for sku in skus:
-        cursor.execute("""
-            INSERT INTO inventories (branch_id, product_id, quantity)
-            VALUES (?, ?, ?);
-        """, (b_id, sku, 15))
-
-# Sauvegarde des changements
+# Sauvegarde des changements et fermeture 💾
 conn.commit()
 conn.close()
 
-print("Base de données remplie avec succès !")
+print("Base de données et tables créées avec succès ! 🎉")
