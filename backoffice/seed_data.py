@@ -50,6 +50,13 @@ cursor.execute("""
     ON CONFLICT(username) DO NOTHING;
 """, ('employe_paris', pwd_context.hash('employe123'), 'common', paris_id))
 
+# 5. Insertion de l'administrateur (aucune boutique assignee, ne gere pas le stock) 👑
+cursor.execute("""
+    INSERT INTO users (username, password_hash, role, branch_id)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(username) DO NOTHING;
+""", ('admin', pwd_context.hash('admin123'), 'admin', None))
+
 # Sauvegarde des changements et fermeture 💾
 conn.commit()
 conn.close()
