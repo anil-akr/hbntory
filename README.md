@@ -33,7 +33,8 @@ Documentation d'architecture et décisions : [`docs/`](docs/) (`architecture.md`
 
 ## Prérequis
 
-- Python 3.10+, Docker.
+- Python 3.10+ (Docker **optionnel** — pratique pour l'API Produit et la variante
+  conteneurs, mais tout peut tourner en Python pur).
 - **API Produit** (asset pack fourni) lancée sur `:5001`.
 - **Clé Groq** gratuite (https://console.groq.com/keys) dans un fichier `.env`
   à la racine : `GROQ_API_KEY=gsk_...` (le `.env` est gitignoré).
@@ -48,7 +49,10 @@ pip install -r backoffice/requirements.txt \
             -r ai_service/requirements.txt
 
 # 1. API Produit (fournie) -> :5001
+#    a) avec Docker :
 docker compose -f /home/xom/hbntory-products-api/docker-compose.yml up -d
+#    b) OU sans Docker (le pack est un simple app.py, aucune dépendance) :
+#       depuis le dossier du pack :  HBN_PRODUCTS_PORT=5001 python3 app.py
 
 # 2. Backoffice : remplir la base une fois, puis lancer l'API -> :8000
 cd backoffice && python seed_data.py && uvicorn main:app --port 8000 ; cd ..
