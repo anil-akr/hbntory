@@ -83,7 +83,7 @@ Sortie réelle obtenue :
 - get_product : Return the details of one product by SKU (e.g. 'HB-LAP-1001') or numeric id.
 - stock_for_product : Show how much of a product is available in each branch.
 - stock_in_branch : List the products (and quantities) currently in stock in one branch.
-- check_shopping_list : Check which branch(es) can satisfy a shopping list.
+- check_shopping_list : Find where to buy a shopping list: one branch, or several combined.
 
 === 2. list_products(search='keyboard', limit=5) ===
 { "count": 2, "products": [ {"sku": "HB-KBD-4102", "name": "Compact Keyboard ES", ...},

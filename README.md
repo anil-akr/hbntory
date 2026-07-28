@@ -23,7 +23,8 @@ Les informations produit ne sont pas stockées localement : elles proviennent d'
 | **API Produit** | *(fournie)* | — | Catalogue produit externe, lecture seule |
 
 Documentation d'architecture et décisions : [`docs/`](docs/) (`architecture.md`,
-`communication-decisions.md`, `mvp.md`).
+`communication-decisions.md`, `mvp.md`). Authentification & autorisation :
+[`docs/auth.md`](docs/auth.md).
 
 > **Architecture agnostique du modèle :** seul `ai_service/agent.py` dépend du
 > fournisseur d'IA (le projet a migré Anthropic → Gemini → **Groq** sans toucher au
@@ -87,6 +88,27 @@ python scripts/e2e_test.py
 ## Démonstration : couvre les points de l'énoncé
 - **Auth Backoffice** + **gestion du stock par un employé** (`employe_paris`, limité à sa boutique) + **gestion des utilisateurs par l'admin** (`admin`) → via `http://127.0.0.1:8000/docs`.
 - **Questions produits & stock** via le front (`:8080`) → réponses ancrées de l'agent (produit + stock).
+
+## Équipe
+Projet réalisé en binôme :
+
+- **Anil Aker** — Serveur MCP (produits + stock) et Service IA (agent + API REST).
+- **Marie Lopez** — Backoffice (auth, utilisateurs, stock), base de données et front public.
+
+## Limitations connues
+- **API Produit externe requise :** les infos produit ne sont pas mises en cache. Si
+  l'API (`:5001`) est indisponible, le Backoffice et l'agent renvoient une erreur
+  claire (502/503) au lieu d'inventer.
+- **Groq (offre gratuite) :** quotas et limites de débit ; certaines IP (VPN) peuvent
+  être bloquées par Cloudflare (403). Chaque membre utilise sa propre clé.
+- **Dépendance `passlib` :** `passlib` 1.7.4 n'est plus maintenu ; `bcrypt` est
+  épinglé `< 4.1` dans `requirements.txt` pour rester compatible.
+- **Clé de signature :** `SECRET_KEY` a une valeur de **développement** par défaut ;
+  il faut définir la variable d'environnement `SECRET_KEY` en production.
+- **Jetons JWT non révocables :** un jeton reste valide jusqu'à son expiration
+  (30 min). Le soft delete bloque au login, mais un jeton déjà émis reste utilisable
+  jusqu'à expiration. Pas de refresh token.
+- **Base SQLite mono-fichier :** adaptée à la démo, pas à une forte charge concurrente.
 
 ## Convention de code
 Commentaires et docstrings en anglais ; documentation en français.

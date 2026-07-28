@@ -58,6 +58,6 @@ Aucun détail produit (nom, prix, description, image) n'est stocké localement.
 ## Notes techniques
  
 - Le Product API tourne sur `http://localhost:5001` (port exposé par le docker-compose fourni ; en interne le conteneur écoute sur 5000).
-- Catalogue : 40 produits, 5 fournisseurs.
+- Catalogue : 39 produits, 5 fournisseurs.
 - Endpoints utiles : `GET /api/v1/products` (liste), `GET /api/v1/products/<sku>` (détails), `GET /api/v1/products/search?q=...` (recherche).
 - Paramètres de test de robustesse : `?simulate_delay_ms=750` (lenteur), `?force_error=true` (erreur forcée).

@@ -32,11 +32,12 @@ d'inventer.
 L'IA accède au stock **via notre propre serveur MCP** (outils `stock_*`), pas par
 un accès direct à la base. Frontière propre : l'agent ne parle qu'au MCP.
 
-> ⚠️ Pour l'instant, les outils stock lisent un fichier local
-> `product_mcp_server/stock_data.json` qui **remplace temporairement** la base
-> d'inventaire partagée (côté Backoffice / Marie). À l'intégration, ces outils
-> interrogeront la vraie base — les noms et formats de retour des outils ne
-> changent pas, donc l'agent reste identique.
+> **Source du stock :** quand la variable d'environnement `STOCK_DB_PATH` pointe
+> vers la base du Backoffice (`inventory.db`, côté Marie), les outils stock lisent
+> le **vrai stock** en **lecture seule**. Sinon, ils lisent un fichier local
+> `product_mcp_server/stock_data.json` (bouchon, pour tourner en autonomie). Les
+> noms et formats de retour des outils sont identiques dans les deux cas, donc
+> l'agent reste inchangé. **Intégration testée de bout en bout.**
 
 ## Ancrage des réponses (grounding)
 

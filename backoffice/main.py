@@ -1,3 +1,8 @@
+import json
+import os
+import urllib.error
+import urllib.parse
+import urllib.request
 from typing import List
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,6 +14,26 @@ import models
 import schemas
 import auth
 from database import Base, engine, get_db
+
+# URL de l'API Produit externe (lecture seule). Le Backoffice affiche les infos
+# produit depuis cette API, jamais depuis la base locale.
+PRODUCT_API_URL = os.environ.get("PRODUCT_API_URL", "http://localhost:5001")
+
+
+def _fetch_product_api(path: str):
+    """Appelle l'API Produit externe et renvoie son JSON, ou une erreur claire."""
+    try:
+        with urllib.request.urlopen(f"{PRODUCT_API_URL}{path}", timeout=5) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        raise HTTPException(
+            status_code=error.code, detail="Produit introuvable ou API Produit en erreur."
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="API Produit injoignable.",
+        )
 
 
 Base.metadata.create_all(bind=engine)
@@ -29,8 +54,19 @@ def read_root():
 
 
 # AUTHENTIFICATION ET UTILISATEURS
-@app.post("/register", response_model=schemas.UserResponse)
-def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+@app.post("/register", response_model=schemas.UserResponse, tags=["Administration"])
+def register_user(
+    user: schemas.UserCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    # Seul l'admin peut créer des utilisateurs (le 1er admin vient du seed)
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès réservé aux administrateurs.",
+        )
+
     db_user = (
         db.query(models.User).filter(models.User.username == user.username).first()
     )
@@ -40,10 +76,13 @@ def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
             detail="Ce nom d'utilisateur est déjà utilisé.",
         )
 
-    hashed_pwd = auth.pwd_context.hash(user.password)
-
-    # Creation de l'utilisateur
-    new_user = models.User(username=user.username, password_hash=hashed_pwd)
+    # Création de l'utilisateur avec son rôle et sa boutique
+    new_user = models.User(
+        username=user.username,
+        password_hash=auth.pwd_context.hash(user.password),
+        role=user.role,
+        branch_id=user.branch_id,
+    )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
@@ -179,6 +218,29 @@ def update_or_create_stock(
     return db_inventory
 
 
+# PRODUITS (depuis l'API externe, jamais la base locale)
+
+@app.get("/products", tags=["Produits (API externe)"])
+def list_products_from_api(
+    search: str = "",
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    """Liste les produits depuis l'API Produit EXTERNE (nom, prix, etc.)."""
+    path = "/api/v1/products?limit=100"
+    if search:
+        path += "&q=" + urllib.parse.quote(search)
+    return _fetch_product_api(path)
+
+
+@app.get("/products/{identifier}", tags=["Produits (API externe)"])
+def get_product_from_api(
+    identifier: str,
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    """Détails d'un produit depuis l'API Produit EXTERNE (par SKU ou id)."""
+    return _fetch_product_api(f"/api/v1/products/{urllib.parse.quote(identifier)}")
+
+
 # ADMINISTRATION
 
 @app.get("/users", response_model=List[schemas.UserResponse], tags=["Administration"])
@@ -245,9 +307,10 @@ def update_user(
             detail="Utilisateur non trouvé.",
         )
 
-    # Met à jour les champs
+    # Met à jour les champs (rôle, boutique, ET mot de passe)
     db_user.role = user_update.role
     db_user.branch_id = user_update.branch_id
+    db_user.password_hash = auth.pwd_context.hash(user_update.password)
     
     db.commit()
     db.refresh(db_user)

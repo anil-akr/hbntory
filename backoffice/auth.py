@@ -12,7 +12,9 @@ import models
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-in-production")
+# The fallback is DEV ONLY and must be >= 32 bytes (HMAC-SHA256).
+# In production, always set the SECRET_KEY environment variable.
+SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-me-in-production-please")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 

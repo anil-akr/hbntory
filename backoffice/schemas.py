@@ -17,7 +17,7 @@ class BranchResponse(BaseModel):
 class UserCreate(BaseModel):
     username: str
     password: str
-    role: str = "admin"
+    role: str = "common"  # Safe default: never grant admin rights by omission
     branch_id: Optional[int] = None
 
 
