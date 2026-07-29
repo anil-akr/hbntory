@@ -23,7 +23,10 @@ class User(Base):
         String(50), unique=True, nullable=False, index=True
     )
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    role: Mapped[str] = mapped_column(String(20), default="admin")
+    # Moindre privilège : un utilisateur créé sans rôle explicite est un employé,
+    # jamais un administrateur. Le seul admin vient du script d'initialisation,
+    # qui passe le rôle explicitement.
+    role: Mapped[str] = mapped_column(String(20), default="common")
 
     deleted_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime, default=None, nullable=True

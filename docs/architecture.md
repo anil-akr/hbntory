@@ -25,16 +25,20 @@ flowchart TD
     ServiceIA -->|MCP via Streamable HTTP| MCP[Serveur MCP]
     MCP -->|HTTP read-only : produits| ProductAPI[Product API externe - Docker, read-only]
     MCP -->|lecture : stock| DB[(Base de donnees)]
-    Staff([Employe / Admin]) -->|login session| Backoffice[Backoffice - REST + HTML/CSS/JS]
+    Staff([Employe / Admin]) -->|login JWT| Backoffice[Backoffice - REST + HTML/CSS/JS]
     Backoffice -->|SQLAlchemy| DB
+    Backoffice -->|HTTP read-only : noms, prix| ProductAPI
 ```
 
 Flux détaillé (légende du diagramme) :
 
-- **Produits :** Client Web → Service IA → Serveur MCP → Product API
+- **Produits (public) :** Client Web → Service IA → Serveur MCP → Product API
 - **Stock :** Service IA → Serveur MCP → Base de données
 - **Interne :** Employés → Backoffice → Base de données
-Chaque service ne parle qu'à son voisin direct. Le Client Web ne connaît que le Service IA ; il ignore l'existence du MCP et du Product API.
+- **Produits (interne) :** Backoffice → Product API, pour afficher le nom et le
+  prix du produit que l'employé manipule, et pour refuser un SKU inconnu.
+
+Chaque service ne parle qu'à son voisin direct. Le Client Web ne connaît que le Service IA ; il ignore l'existence du MCP et du Product API. Les deux chemins vers les données produit (public et interne) aboutissent à la **même** source externe : rien n'est dupliqué en base.
  
 ## 3. Données stockées localement (notre base)
  

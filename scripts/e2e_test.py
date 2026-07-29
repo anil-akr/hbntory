@@ -74,16 +74,23 @@ def main() -> int:
         print("  docker compose -f /home/xom/hbntory-products-api/docker-compose.yml up -d")
         return 1
 
-    # Start the MCP server as a background subprocess.
-    print("Starting the product MCP server...")
-    mcp_server = subprocess.Popen(
-        [sys.executable, "-m", "product_mcp_server.server"], cwd=REPO_ROOT
-    )
-    try:
+    # Reuse an MCP server that is already running (typical when the whole stack
+    # is up), otherwise start one for the duration of the test.
+    mcp_server = None
+    if wait_until_up(MCP_URL, timeout_seconds=1):
+        print(f"Using the MCP server already running at {MCP_URL}.\n")
+    else:
+        print("Starting the product MCP server...")
+        mcp_server = subprocess.Popen(
+            [sys.executable, "-m", "product_mcp_server.server"], cwd=REPO_ROOT
+        )
         if not wait_until_up(MCP_URL):
             print("ERROR: the MCP server did not start in time.")
+            mcp_server.terminate()
             return 1
         print("MCP server ready.\n")
+
+    try:
 
         failures = 0
         for question in QUESTIONS:
@@ -98,9 +105,11 @@ def main() -> int:
                 print(f"ERROR: {type(error).__name__}: {error}")
             print()
     finally:
-        mcp_server.terminate()
-        mcp_server.wait()
-        print("MCP server stopped.")
+        # Only stop the server if this script is the one that started it.
+        if mcp_server is not None:
+            mcp_server.terminate()
+            mcp_server.wait()
+            print("MCP server stopped.")
 
     print(f"{len(QUESTIONS) - failures}/{len(QUESTIONS)} questions answered.")
     return 1 if failures else 0
