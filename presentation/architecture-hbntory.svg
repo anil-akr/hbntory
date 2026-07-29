@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 800" width="1600" height="800" font-family="'Segoe UI', 'DejaVu Sans', Arial, sans-serif">
+
+  <defs>
+    <marker id="fleche" markerWidth="11" markerHeight="9" refX="10" refY="4.5" orient="auto">
+      <path d="M0,0 L11,4.5 L0,9 z" fill="#475569"/>
+    </marker>
+  </defs>
+
+  <rect width="1600" height="800" fill="#ffffff"/>
+
+  <!-- ============ RANGEE HAUTE : le parcours d'une question du public ============ -->
+
+  <!-- Visiteur public (acteur) -->
+  <rect x="115" y="200" width="170" height="115" rx="57" fill="#f1f5f9" stroke="#94a3b8" stroke-width="3"/>
+  <text x="200" y="250" text-anchor="middle" font-size="21" font-weight="600" fill="#334155">Visiteur</text>
+  <text x="200" y="278" text-anchor="middle" font-size="21" font-weight="600" fill="#334155">public</text>
+
+  <!-- Client Web -->
+  <rect x="415" y="200" width="170" height="115" rx="14" fill="#ecfdf5" stroke="#10b981" stroke-width="3"/>
+  <text x="500" y="250" text-anchor="middle" font-size="21" font-weight="700" fill="#065f46">Client Web</text>
+  <text x="500" y="277" text-anchor="middle" font-size="15" fill="#047857">page publique</text>
+
+  <!-- Service IA -->
+  <rect x="715" y="200" width="170" height="115" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="3"/>
+  <text x="800" y="250" text-anchor="middle" font-size="21" font-weight="700" fill="#1e3a8a">Service IA</text>
+  <text x="800" y="277" text-anchor="middle" font-size="15" fill="#1d4ed8">agent + outils</text>
+
+  <!-- Serveur MCP -->
+  <rect x="1015" y="200" width="170" height="115" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="3"/>
+  <text x="1100" y="250" text-anchor="middle" font-size="21" font-weight="700" fill="#1e3a8a">Serveur MCP</text>
+  <text x="1100" y="277" text-anchor="middle" font-size="15" fill="#1d4ed8">5 outils</text>
+
+  <!-- API Produit externe -->
+  <rect x="1315" y="200" width="170" height="115" rx="14" fill="#fffbeb" stroke="#f59e0b" stroke-width="3"/>
+  <text x="1400" y="244" text-anchor="middle" font-size="21" font-weight="700" fill="#92400e">API Produit</text>
+  <text x="1400" y="270" text-anchor="middle" font-size="21" font-weight="700" fill="#92400e">externe</text>
+  <text x="1400" y="292" text-anchor="middle" font-size="14" fill="#b45309">Docker, lecture seule</text>
+
+  <!-- ============ RANGEE BASSE : le circuit interne ============ -->
+
+  <!-- Employe / Admin (acteur) -->
+  <rect x="115" y="560" width="170" height="115" rx="57" fill="#f1f5f9" stroke="#94a3b8" stroke-width="3"/>
+  <text x="200" y="610" text-anchor="middle" font-size="21" font-weight="600" fill="#334155">Employé</text>
+  <text x="200" y="638" text-anchor="middle" font-size="21" font-weight="600" fill="#334155">/ Admin</text>
+
+  <!-- Backoffice -->
+  <rect x="415" y="560" width="170" height="115" rx="14" fill="#ecfdf5" stroke="#10b981" stroke-width="3"/>
+  <text x="500" y="610" text-anchor="middle" font-size="21" font-weight="700" fill="#065f46">Backoffice</text>
+  <text x="500" y="637" text-anchor="middle" font-size="15" fill="#047857">authentifié</text>
+
+  <!-- Base de donnees -->
+  <rect x="1015" y="560" width="170" height="115" rx="14" fill="#ecfdf5" stroke="#10b981" stroke-width="3"/>
+  <text x="1100" y="604" text-anchor="middle" font-size="21" font-weight="700" fill="#065f46">Base de</text>
+  <text x="1100" y="630" text-anchor="middle" font-size="21" font-weight="700" fill="#065f46">données</text>
+  <text x="1100" y="652" text-anchor="middle" font-size="14" fill="#047857">users, boutiques, stock</text>
+
+  <!-- ============ FLECHES ============ -->
+
+  <!-- Visiteur -> Client Web -->
+  <line x1="285" y1="257" x2="410" y2="257" stroke="#475569" stroke-width="3" marker-end="url(#fleche)"/>
+
+  <!-- Client Web -> Service IA -->
+  <line x1="585" y1="257" x2="710" y2="257" stroke="#475569" stroke-width="3" marker-end="url(#fleche)"/>
+  <text x="650" y="228" text-anchor="middle" font-size="14" font-weight="600" fill="#334155">REST</text>
+  <text x="650" y="245" text-anchor="middle" font-size="13" fill="#64748b">1 question</text>
+
+  <!-- Service IA -> Serveur MCP -->
+  <line x1="885" y1="257" x2="1010" y2="257" stroke="#475569" stroke-width="3" marker-end="url(#fleche)"/>
+  <text x="950" y="228" text-anchor="middle" font-size="14" font-weight="600" fill="#334155">MCP</text>
+  <text x="950" y="245" text-anchor="middle" font-size="13" fill="#64748b">Streamable HTTP</text>
+
+  <!-- Serveur MCP -> API Produit -->
+  <line x1="1185" y1="257" x2="1310" y2="257" stroke="#475569" stroke-width="3" marker-end="url(#fleche)"/>
+  <text x="1250" y="228" text-anchor="middle" font-size="14" font-weight="600" fill="#334155">HTTP</text>
+  <text x="1250" y="245" text-anchor="middle" font-size="13" fill="#64748b">lecture seule</text>
+
+  <!-- Serveur MCP -> Base de donnees (vertical) -->
+  <line x1="1100" y1="315" x2="1100" y2="555" stroke="#475569" stroke-width="3" marker-end="url(#fleche)"/>
+  <text x="1122" y="428" font-size="14" font-weight="600" fill="#334155">lecture</text>
+  <text x="1122" y="446" font-size="13" fill="#64748b">du stock</text>
+
+  <!-- Employe -> Backoffice -->
+  <line x1="285" y1="617" x2="410" y2="617" stroke="#475569" stroke-width="3" marker-end="url(#fleche)"/>
+  <text x="347" y="598" text-anchor="middle" font-size="13" font-weight="600" fill="#334155">login JWT</text>
+
+  <!-- Backoffice -> Base de donnees -->
+  <line x1="585" y1="617" x2="1010" y2="617" stroke="#475569" stroke-width="3" marker-end="url(#fleche)"/>
+  <text x="797" y="598" text-anchor="middle" font-size="14" font-weight="600" fill="#334155">SQLAlchemy</text>
+
+  <!-- ============ LEGENDE ============ -->
+
+  <rect x="115" y="726" width="26" height="26" rx="6" fill="#eff6ff" stroke="#2563eb" stroke-width="3"/>
+  <text x="153" y="745" font-size="17" fill="#334155">Anil — Serveur MCP &amp; Service IA</text>
+
+  <rect x="575" y="726" width="26" height="26" rx="6" fill="#ecfdf5" stroke="#10b981" stroke-width="3"/>
+  <text x="613" y="745" font-size="17" fill="#334155">Marie — Backoffice, base de données, interface web</text>
+
+  <rect x="1255" y="726" width="26" height="26" rx="6" fill="#fffbeb" stroke="#f59e0b" stroke-width="3"/>
+  <text x="1293" y="745" font-size="17" fill="#334155">Fourni</text>
+
+</svg>
