@@ -63,7 +63,9 @@
             <div class="form-group">
               <label for="new-role">Rôle</label>
               <select id="new-role" required>
-                <option value="employee">Employé</option>
+                <!-- "common" est le rôle attendu partout ailleurs (seed, API,
+                     tests). Envoyer "employee" créerait un rôle fantôme. -->
+                <option value="common">Employé</option>
                 <option value="admin">Administrateur</option>
               </select>
             </div>

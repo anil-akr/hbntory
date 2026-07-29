@@ -22,6 +22,12 @@ data = {
     }
 }
 
+# La table stock n'a pas de contrainte d'unicité sur (boutique, produit) : sans
+# ce nettoyage, relancer le script ajouterait une deuxième ligne pour chaque
+# produit et doublerait les quantités affichées. On repart donc du stock défini
+# ci-dessus, qui fait référence.
+cursor.execute("DELETE FROM inventories;")
+
 # 2. Insertion des boutiques et de leur stock 🏬📦
 for branch_name, products in data["branches"].items():
     cursor.execute("""
