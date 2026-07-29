@@ -26,9 +26,13 @@
   --stock:    #10B981;  /* Marie — backoffice, base, front */
   --external: #F59E0B;  /* fourni */
 
-  --display: 'Bahnschrift', 'DIN Alternate', 'Franklin Gothic Medium', 'Segoe UI', sans-serif;
+  /* Piles pensées pour Windows ET macOS : Bahnschrift n'existe que sous
+     Windows, DIN Alternate / Avenir Next Condensed prennent le relais sur
+     Mac, où ui-monospace donne SF Mono et system-ui donne SF Pro. */
+  --display: 'Bahnschrift', 'DIN Alternate', 'DIN Condensed', 'Franklin Gothic Medium',
+             'Avenir Next Condensed', 'Segoe UI', system-ui, sans-serif;
   --body:    'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', sans-serif;
-  --mono:    'Consolas', 'Cascadia Mono', 'DejaVu Sans Mono', ui-monospace, monospace;
+  --mono:    'Consolas', 'Cascadia Mono', 'SF Mono', 'Menlo', 'DejaVu Sans Mono', ui-monospace, monospace;
 }
 
 * { box-sizing: border-box; }
@@ -638,6 +642,20 @@ ol.list > li::before {
     location.hash = current + 1;
   }
 
+  /* Safari n'a la méthode standard que depuis la version 16.4 : on garde le
+     préfixe -webkit- en secours pour les Mac qui ne sont pas à jour. */
+  function toggleFullscreen() {
+    const root = document.documentElement;
+    const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
+    if (isFullscreen) {
+      const exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if (exit) exit.call(document);
+    } else {
+      const request = root.requestFullscreen || root.webkitRequestFullscreen;
+      if (request) request.call(root);
+    }
+  }
+
   document.addEventListener('keydown', (event) => {
     switch (event.key) {
       case 'ArrowRight': case 'ArrowDown': case ' ': case 'PageDown':
@@ -647,9 +665,7 @@ ol.list > li::before {
       case 'Home': show(0); break;
       case 'End': show(slides.length - 1); break;
       case 'f': case 'F':
-        if (document.fullscreenElement) document.exitFullscreen();
-        else document.documentElement.requestFullscreen();
-        break;
+        event.preventDefault(); toggleFullscreen(); break;
     }
   });
 
