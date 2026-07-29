@@ -12,11 +12,14 @@ Prerequisites:
 Then run: python -m product_mcp_server.test_client
 """
 import asyncio
+import os
 
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
-SERVER_URL = "http://127.0.0.1:8000/mcp"
+# Same environment variable as the AI service, so the test follows the server
+# wherever it runs (the README starts it on 8010 to leave 8000 to the Backoffice).
+SERVER_URL = os.environ.get("MCP_SERVER_URL", "http://127.0.0.1:8010/mcp")
 
 
 def show_result(result):

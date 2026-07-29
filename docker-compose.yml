@@ -24,7 +24,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "8000:8000"
+      - "8010:8010"
 
   ai-service:
     build:
@@ -32,7 +32,7 @@ services:
       dockerfile: ai_service/Dockerfile
     environment:
       # Reach the MCP server by its Compose service name.
-      MCP_SERVER_URL: "http://mcp-server:8000/mcp"
+      MCP_SERVER_URL: "http://mcp-server:8010/mcp"
     env_file:
       - .env  # provides GROQ_API_KEY
     ports:

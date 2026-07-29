@@ -23,10 +23,13 @@ sys.path.insert(0, REPO_ROOT)
 
 # Imported after sys.path is set, so the script runs from anywhere. Importing
 # the agent also loads the .env file, which is where the API key lives.
-from ai_service.agent import ask  # noqa: E402
+from ai_service.agent import MCP_SERVER_URL, ask  # noqa: E402
 
 PRODUCT_API_URL = os.environ.get("PRODUCT_API_URL", "http://localhost:5001")
-MCP_URL = "http://127.0.0.1:8000/mcp"
+
+# Reuse the agent's own URL, so the test can never wait on a different port
+# than the one the agent will actually call.
+MCP_URL = MCP_SERVER_URL
 
 # One question per supported type (see ai_service/supported_questions.md).
 QUESTIONS = [

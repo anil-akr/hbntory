@@ -49,8 +49,12 @@ Le flux (endpoint `POST /token`) :
 4. Sinon, on émet un **jeton JWT** signé, valable 30 minutes :
 
 ```python
-create_access_token(data={"sub": user.username})  # HS256, exp = +30 min
+create_access_token(data={"sub": user.username, "role": user.role})  # HS256, exp = +30 min
 ```
+
+Le `role` est présent uniquement pour que l'interface web sache quel écran
+afficher après la connexion. **Il ne sert jamais à autoriser quoi que ce soit :**
+les droits sont revérifiés côté serveur à partir de la base à chaque requête.
 
 Le client renvoie ensuite ce jeton dans l'en-tête `Authorization: Bearer <jeton>`
 à chaque requête protégée.
@@ -66,8 +70,13 @@ Le client renvoie ensuite ce jeton dans l'en-tête `Authorization: Bearer <jeton
 - **Adapté à notre archi :** le front public et le Backoffice sont des clients HTTP
   séparés ; un jeton porté dans un en-tête est plus simple qu'un cookie de session.
 
-La contrepartie (voir *Limitations* du README) : un jeton reste valide jusqu'à son
-expiration, on ne peut pas le révoquer instantanément.
+La contrepartie habituelle du sans-état est qu'on ne peut pas révoquer un jeton
+avant son expiration. **Nous avons fermé ce trou pour le cas qui compte ici :**
+`get_current_user` recharge l'utilisateur à chaque requête **en excluant les
+comptes supprimés**. Un jeton émis avant une désactivation cesse donc de
+fonctionner immédiatement, sans attendre les 30 minutes. Il reste vrai qu'on ne
+peut pas révoquer un jeton pour une autre raison (mot de passe changé, par
+exemple) : il faudrait pour cela une liste de révocation côté serveur.
 
 ## 3. Vérification du jeton à chaque requête
 

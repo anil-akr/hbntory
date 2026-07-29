@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, ConfigDict
 
@@ -26,6 +27,9 @@ class UserResponse(BaseModel):
     username: str
     role: str
     branch_id: Optional[int] = None
+    # Rempli uniquement pour un compte désactivé (soft delete) : l'interface
+    # affiche ainsi "désactivé" au lieu de faire disparaître la ligne.
+    deleted_at: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -47,4 +51,3 @@ class InventoryResponse(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
-UserResponse.model_rebuild()

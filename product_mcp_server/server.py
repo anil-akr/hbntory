@@ -18,7 +18,7 @@ failure.
 
 Run the server (from the repo root, with the venv active):
     python -m product_mcp_server.server
-It listens over Streamable HTTP at http://127.0.0.1:8000/mcp
+It listens over Streamable HTTP at http://127.0.0.1:8010/mcp
 """
 import json
 import os
@@ -40,12 +40,12 @@ STOCK_FILE = os.path.join(os.path.dirname(__file__), "stock_data.json")
 STOCK_DB_PATH = os.environ.get("STOCK_DB_PATH")
 
 # The MCP server. The name is shown on the agent side. Host and port are
-# configurable: MCP_HOST (docker-compose sets 0.0.0.0), and MCP_PORT to avoid a
-# clash — e.g. run the MCP on 8010 next to the Backoffice on 8000.
+# configurable: MCP_HOST (docker-compose sets 0.0.0.0) and MCP_PORT. The default
+# is 8010, not 8000, because the Backoffice already listens on 8000.
 mcp = FastMCP(
     "hbntory-products",
     host=os.environ.get("MCP_HOST", "127.0.0.1"),
-    port=int(os.environ.get("MCP_PORT", "8000")),
+    port=int(os.environ.get("MCP_PORT", "8010")),
 )
 
 

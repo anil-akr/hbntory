@@ -18,29 +18,33 @@ import asyncio
 import json
 import os
 
-from groq import Groq
+from groq import BadRequestError, Groq
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
-MCP_SERVER_URL = os.environ.get("MCP_SERVER_URL", "http://127.0.0.1:8000/mcp")
+# Default port is 8010: the Backoffice already uses 8000.
+MCP_SERVER_URL = os.environ.get("MCP_SERVER_URL", "http://127.0.0.1:8010/mcp")
 
 # Model id verified against the live API (GET /openai/v1/models).
-MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+# llama-3.3-70b-versatile was dropped: it regularly emits malformed tool calls
+# ("<function=get_product{...}"), which the API rejects with tool_use_failed.
+MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
 
 # Safety bound: stop after this many tool rounds so we can never loop forever.
-MAX_TOOL_ROUNDS = 5
+# Listing a branch takes one call for the stock plus one per product to get its
+# name, so a branch with a few products already needs more than five rounds.
+MAX_TOOL_ROUNDS = 10
 
 # The system prompt keeps the agent grounded in real data.
 SYSTEM_PROMPT = (
     "You are the HBntory assistant. You answer questions about products and "
-    "stock across the company's branches.\n"
+    "stock across the company's branches. "
     "Only use the information returned by the tools. Never invent product "
-    "names, prices, stock quantities, or branch availability.\n"
+    "names, prices, stock quantities, or branch availability. "
     "If the tools do not provide the needed information, say clearly that the "
-    "information is not available.\n"
-    "CRITICAL FOR TOOL CALLS: When calling a tool/function, you MUST ALWAYS return "
-    "a perfectly formatted, valid, and fully closed JSON object for arguments. "
-    "Ensure all opening braces `{` have matching closing braces `}`."
+    "information is not available. "
+    "When calling a tool, always produce a complete and valid JSON object for "
+    "the arguments, with every brace closed."
 )
 
 
@@ -96,6 +100,30 @@ def _to_groq_tools(mcp_tools):
     ]
 
 
+def _ask_model(client, messages, tools):
+    """Ask the model for its next step, retrying once on a malformed tool call.
+
+    A model sometimes writes a tool call the API cannot parse, and the API
+    answers with a 400 "tool_use_failed". Asking again is enough in practice,
+    and it keeps a single bad generation from breaking the whole answer.
+    """
+    last_error = None
+    for attempt in range(2):
+        try:
+            return client.chat.completions.create(
+                model=MODEL,
+                messages=messages,
+                tools=tools,
+                tool_choice="auto",
+            )
+        except BadRequestError as error:
+            if "tool_use_failed" not in str(error):
+                raise
+            print(f"[retry] malformed tool call (attempt {attempt + 1})", flush=True)
+            last_error = error
+    raise last_error
+
+
 def _tool_result_text(result) -> str:
     """Extract a text payload from an MCP tool result to send back to the model."""
     if result.content and result.content[0].type == "text":
@@ -118,12 +146,7 @@ async def answer_question(question: str) -> str:
             ]
 
             for _ in range(MAX_TOOL_ROUNDS):
-                response = client.chat.completions.create(
-                    model=MODEL,
-                    messages=messages,
-                    tools=tools,
-                    tool_choice="auto",
-                )
+                response = _ask_model(client, messages, tools)
                 message = response.choices[0].message
 
                 if not message.tool_calls:
@@ -137,7 +160,9 @@ async def answer_question(question: str) -> str:
                 # Run each requested tool through the MCP server.
                 for call in message.tool_calls:
                     arguments = json.loads(call.function.arguments or "{}")
-                    print(f"[tool call] {call.function.name}({arguments})")
+                    # flush=True so the call shows up immediately, even when the
+                    # service output is piped to a file or read from Docker logs.
+                    print(f"[tool call] {call.function.name}({arguments})", flush=True)
                     result = await session.call_tool(call.function.name, arguments)
                     messages.append(
                         {

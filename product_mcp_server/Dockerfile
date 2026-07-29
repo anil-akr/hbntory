@@ -13,6 +13,6 @@ COPY product_mcp_server/ ./product_mcp_server/
 
 # Listen on all interfaces so the AI service container can reach us.
 ENV MCP_HOST=0.0.0.0
-EXPOSE 8000
+EXPOSE 8010
 
 CMD ["python", "-m", "product_mcp_server.server"]

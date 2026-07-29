@@ -83,6 +83,7 @@ r = client.post("/inventories", json={"branch_id": PARIS_ID, "product_id": "HB-L
 check("common modifie/retire du stock (10 -> 3)", r.status_code == 200 and r.json()["quantity"] == 3)
 check("quantité négative -> 400", client.post("/inventories", json={"branch_id": PARIS_ID, "product_id": "HB-LAP-1001", "quantity": -1}, headers=h(bob_token)).status_code == 400)
 check("common sur une AUTRE boutique -> 403", client.post("/inventories", json={"branch_id": LYON_ID, "product_id": "HB-LAP-1001", "quantity": 5}, headers=h(bob_token)).status_code == 403)
+check("stock sur un SKU absent du catalogue -> 400", client.post("/inventories", json={"branch_id": PARIS_ID, "product_id": "SKU-INEXISTANT", "quantity": 5}, headers=h(bob_token)).status_code == 400)
 r = client.get(f"/inventories/{PARIS_ID}", headers=h(bob_token))
 check("common consulte le stock de SA boutique", r.status_code == 200 and len(r.json()) >= 1)
 check("common consulte une AUTRE boutique -> 403", client.get(f"/inventories/{LYON_ID}", headers=h(bob_token)).status_code == 403)
@@ -107,9 +108,21 @@ check("admin change le mot de passe d'un user -> 200", client.put(f"/users/{bob_
 check("ancien mot de passe refusé après changement", login("bob", "bob123")[1] == 401)
 check("nouveau mot de passe accepté", login("bob", "newpass")[1] == 200)
 
+# --- Identity and stock overview (used by the web interface) ---
+r = client.get("/users/me", headers=h(bob_token))
+check("/users/me renvoie le profil du connecté", r.status_code == 200 and r.json()["username"] == "bob" and r.json()["branch_id"] == PARIS_ID)
+r = client.get("/inventories", headers=h(admin_token))
+check("admin voit le stock de toutes les boutiques", r.status_code == 200 and len({item["branch_id"] for item in r.json()}) >= 1)
+r = client.get("/inventories", headers=h(bob_token))
+check("employé ne voit que le stock de SA boutique", r.status_code == 200 and all(item["branch_id"] == PARIS_ID for item in r.json()))
+check("non-admin crée une boutique -> 403", client.post("/branches", json={"name": "Bordeaux"}, headers=h(bob_token)).status_code == 403)
+
 # soft delete
+alice_token = login("alice", "alice123")[0]
 check("admin soft-delete un user -> 200", client.delete(f"/users/{alice_id}", headers=h(admin_token)).status_code == 200)
 check("user supprimé ne peut plus se connecter -> 401", login("alice", "alice123")[1] == 401)
+# A token issued before the deletion must stop working immediately.
+check("jeton émis avant la suppression -> invalide aussitôt", client.get("/users/me", headers=h(alice_token)).status_code == 401)
 
 # --- Product details come from the EXTERNAL API (not local DB) ---
 r = client.get("/products/HB-LAP-1001", headers=h(admin_token))

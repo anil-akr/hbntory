@@ -3,7 +3,9 @@
 Backend indépendant qui répond aux questions publiques sur produits et stock,
 via un agent connecté au serveur MCP produit.
 
-- Modèle : **Groq** (`llama-3.3-70b-versatile` par défaut), SDK `groq==1.5.0`.
+- Modèle : **Groq** (`openai/gpt-oss-120b` par défaut), SDK `groq==1.5.0`.
+  `llama-3.3-70b-versatile` a été abandonné : il produisait régulièrement des
+  appels d'outils mal formés, rejetés par l'API (`tool_use_failed`).
 - Endpoint : Flask, `POST /ask` (REST).
 - Agent : boucle d'outils manuelle (voir `agent.py`), affiche chaque appel d'outil.
 - Types de questions supportés : voir `supported_questions.md`.
@@ -29,8 +31,10 @@ via un agent connecté au serveur MCP produit.
 # 1. API Produit (conteneur fourni)
 docker compose -f /home/xom/hbntory-products-api/docker-compose.yml up -d
 
-# 2. Serveur MCP (produits + stock)
-python -m product_mcp_server.server
+# 2. Serveur MCP (produits + stock) -> :8010
+#    STOCK_DB_PATH le branche sur la vraie base du Backoffice ; sans lui, il
+#    lit le stock d'exemple et le service tourne quand même.
+STOCK_DB_PATH="$(pwd)/backoffice/inventory.db" python -m product_mcp_server.server
 
 # 3. Service IA
 export GROQ_API_KEY="gsk_..."

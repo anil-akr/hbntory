@@ -138,7 +138,7 @@
   </div>
 
   <script>
-    const API_URL = "http://127.0.0.1:8002";
+    const API_URL = "http://127.0.0.1:8000";
     const token = localStorage.getItem('adminToken') || localStorage.getItem('userToken');
 
     let branchesMap = {};
@@ -208,17 +208,27 @@
         const body = document.getElementById('users-table-body');
 
         body.innerHTML = users.length === 0 ? '<tr><td colspan="5" style="text-align:center;">Aucun utilisateur.</td></tr>' :
-          users.map(u => `
-            <tr>
+          users.map(u => {
+            const disabled = Boolean(u.deleted_at);
+            const branchLabel = u.branch_id
+              ? escapeHTML(branchesMap[u.branch_id] || ('Boutique #' + u.branch_id))
+              : 'Toutes';
+            const actions = u.username === 'admin'
+              ? '<em style="color:#888;">Protégé</em>'
+              : (disabled
+                  ? '<em style="color:#888;">Désactivé</em>'
+                  : `<button onclick="editUser(${u.id})" class="btn" style="padding: 4px 8px; font-size: 0.8rem;">Modifier</button>
+                     <button onclick="deleteUser(${u.id})" class="btn btn-danger" style="padding: 4px 8px; font-size: 0.8rem;">Supprimer</button>`);
+            return `
+            <tr${disabled ? ' style="opacity:0.5;"' : ''}>
               <td>#${u.id}</td>
-              <td><strong>${escapeHTML(u.username)}</strong></td>
+              <td><strong>${escapeHTML(u.username)}</strong>${disabled ? ' <span style="color:#fca5a5;">(désactivé)</span>' : ''}</td>
               <td><span class="badge-${u.role === 'admin' ? 'admin' : 'employee'}">${u.role}</span></td>
-              <td>${u.branch_id ? escapeHTML(branchesMap[u.branch_id] || ('Boutique #' + u.branch_id)) : 'Toutes'}</td>
-              <td>
-                ${u.username !== 'admin' ? `<button onclick="deleteUser(${u.id})" class="btn btn-danger" style="padding: 4px 8px; font-size: 0.8rem;">Supprimer</button>` : '<em style="color:#888;">Protégé</em>'}
-              </td>
+              <td>${branchLabel}</td>
+              <td>${actions}</td>
             </tr>
-          `).join('');
+          `;
+          }).join('');
       } catch (err) {
         showAlert("Erreur lors du chargement des utilisateurs", "error");
       }
@@ -303,6 +313,50 @@
         showAlert("Erreur réseau lors de la création", "error");
       }
     });
+
+    // Modification d'un compte : nouveau mot de passe et/ou nouvelle boutique.
+    // L'API attend l'utilisateur complet, on renvoie donc aussi son rôle.
+    async function editUser(userId) {
+      const users = await (await fetch(`${API_URL}/users`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })).json();
+      const user = users.find(u => u.id === userId);
+      if (!user) return showAlert("Utilisateur introuvable", "error");
+
+      const password = prompt(`Nouveau mot de passe pour ${user.username} :`);
+      if (password === null || password === '') return;
+
+      const branchList = Object.entries(branchesMap)
+        .map(([id, name]) => `${id} = ${name}`).join('\n');
+      const branchInput = prompt(
+        `Boutique de ${user.username} (laisser vide = aucune) :\n${branchList}`,
+        user.branch_id || ''
+      );
+      if (branchInput === null) return;
+
+      try {
+        const res = await fetch(`${API_URL}/users/${userId}`, {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: user.username,
+            password: password,
+            role: user.role,
+            branch_id: branchInput === '' ? null : parseInt(branchInput)
+          })
+        });
+
+        if (res.ok) {
+          showAlert("✅ Utilisateur modifié !");
+          loadUsers();
+        } else {
+          const err = await res.json();
+          showAlert("❌ " + (err.detail || "Erreur de modification"), "error");
+        }
+      } catch (err) {
+        showAlert("Erreur réseau lors de la modification", "error");
+      }
+    }
 
     async function deleteUser(userId) {
       if (!confirm("Voulez-vous vraiment supprimer cet utilisateur ?")) return;

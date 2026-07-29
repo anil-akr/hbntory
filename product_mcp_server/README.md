@@ -6,7 +6,8 @@ produit sont relayées depuis l'API Produit externe (lecture seule), le stock es
 lu depuis l'inventaire.
 
 - Techno : SDK MCP Python (`mcp==1.28.1`), classe `FastMCP`.
-- Transport : **Streamable HTTP**, sur `http://127.0.0.1:8000/mcp`.
+- Transport : **Streamable HTTP**, sur `http://127.0.0.1:8010/mcp`
+  (port 8010 par défaut : le Backoffice occupe déjà 8000).
 - Appels réseau : `urllib` (bibliothèque standard), comme l'API Produit elle-même.
 - Tout tient dans un seul fichier : `server.py`. Chaque fonction décorée
   `@mcp.tool()` devient un outil disponible pour l'agent.
@@ -62,9 +63,10 @@ python -m product_mcp_server.server
 # 2b. OU serveur MCP branché sur la VRAIE base du Backoffice (stock réel, lecture seule) :
 STOCK_DB_PATH=/chemin/vers/backoffice/inventory.db python -m product_mcp_server.server
 
-# Conflit avec le Backoffice (lui aussi sur :8000) ? Change le port du MCP :
-#   MCP_PORT=8010 python -m product_mcp_server.server
-#   puis lance le Service IA avec  MCP_SERVER_URL=http://127.0.0.1:8010/mcp
+# Besoin d'un autre port ? MCP_PORT le change, et le Service IA suit avec
+# MCP_SERVER_URL :
+#   MCP_PORT=9000 python -m product_mcp_server.server
+#   MCP_SERVER_URL=http://127.0.0.1:9000/mcp python -m ai_service.app
 ```
 
 ## Tester manuellement (preuve de test)

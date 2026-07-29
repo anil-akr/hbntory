@@ -77,11 +77,12 @@
         <thead>
           <tr>
             <th>ID Produit (SKU)</th>
+            <th>Produit (API externe)</th>
             <th>Quantité en Stock</th>
           </tr>
         </thead>
         <tbody id="stock-table-body">
-          <tr><td colspan="2" style="text-align: center;">Choisissez une boutique et cliquez sur "Afficher le stock".</td></tr>
+          <tr><td colspan="3" style="text-align: center;">Cliquez sur "Afficher le stock".</td></tr>
         </tbody>
       </table>
     </div>
@@ -89,7 +90,7 @@
   </div>
 
   <script>
-    const API_URL = "http://127.0.0.1:8002";
+    const API_URL = "http://127.0.0.1:8000";
     const token = localStorage.getItem('userToken');
 
     if (!token) {
@@ -104,23 +105,55 @@
       setTimeout(() => { alertMsg.style.display = 'none'; }, 4000);
     }
 
-    // Charger les boutiques dans les menus déroulants
-    async function loadBranchesDropdowns() {
+    // Boutique assignée à l'employé connecté (remplie au chargement).
+    let myBranchId = null;
+
+    // Un employé ne travaille que sur SA boutique : on ne lui propose qu'elle,
+    // au lieu de la liste complète qui ferait échouer l'envoi en 403.
+    async function loadMyBranch() {
       try {
-        const res = await fetch(`${API_URL}/branches`, {
+        const meRes = await fetch(`${API_URL}/users/me`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-        if (res.status === 401) return logout();
+        if (meRes.status === 401) return logout();
+        const me = await meRes.json();
+        myBranchId = me.branch_id;
 
-        const branches = await res.json();
-        
-        const optionsHtml = '<option value="">-- Choisir une boutique --</option>' + 
-          branches.map(b => `<option value="${b.id}">${escapeHTML(b.name)}</option>`).join('');
+        const branchesRes = await fetch(`${API_URL}/branches`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const branches = await branchesRes.json();
+        const myBranch = branches.find(b => b.id === myBranchId);
 
-        document.getElementById('stock-branch-select').innerHTML = optionsHtml;
-        document.getElementById('search-branch-select').innerHTML = optionsHtml;
+        if (!myBranch) {
+          showAlert("Aucune boutique ne vous est assignée. Contactez l'administrateur.", "error");
+          return;
+        }
+
+        const optionHtml = `<option value="${myBranch.id}">${escapeHTML(myBranch.name)}</option>`;
+        document.getElementById('stock-branch-select').innerHTML = optionHtml;
+        document.getElementById('search-branch-select').innerHTML = optionHtml;
+
+        // Rappel visible de la boutique sur laquelle l'employé opère.
+        document.querySelector('.badge-employee').textContent = `Employé — ${myBranch.name}`;
+
+        loadInventory();
       } catch (err) {
-        showAlert("Erreur de chargement des boutiques", "error");
+        showAlert("Erreur de chargement de votre boutique", "error");
+      }
+    }
+
+    // Le nom commercial vient de l'API Produit externe, jamais de notre base :
+    // celle-ci ne stocke que le SKU.
+    async function fetchProductName(sku) {
+      try {
+        const res = await fetch(`${API_URL}/products/${encodeURIComponent(sku)}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) return '—';
+        return (await res.json()).name;
+      } catch (err) {
+        return '—';
       }
     }
 
@@ -138,13 +171,16 @@
         const body = document.getElementById('stock-table-body');
 
         if (items.length === 0) {
-          body.innerHTML = '<tr><td colspan="2" style="text-align:center;">Aucun produit en stock pour cette boutique.</td></tr>';
+          body.innerHTML = '<tr><td colspan="3" style="text-align:center;">Aucun produit en stock pour cette boutique.</td></tr>';
           return;
         }
 
-        body.innerHTML = items.map(i => `
+        const names = await Promise.all(items.map(i => fetchProductName(i.product_id)));
+
+        body.innerHTML = items.map((i, index) => `
           <tr>
             <td><strong>${escapeHTML(i.product_id)}</strong></td>
+            <td>${escapeHTML(names[index])}</td>
             <td><span style="color:var(--primary); font-weight:bold;">${i.quantity}</span> unités</td>
           </tr>
         `).join('');
@@ -201,7 +237,7 @@
     }
 
     // Initialisation
-    loadBranchesDropdowns();
+    loadMyBranch();
   </script>
 </body>
 </html>
