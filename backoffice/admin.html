@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HBntory - Administration</title>
+  <link rel="stylesheet" href="backoffice.css">
+  <style>
+    .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .badge-admin { background: rgba(239, 68, 68, 0.2); color: #fca5a5; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; border: 1px solid rgba(239, 68, 68, 0.4); }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .alert-box { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; display: none; }
+    .alert-success { background: rgba(34, 197, 94, 0.15); border: 1px solid #22c55e; color: #4ade80; }
+    .alert-error { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #fca5a5; }
+    
+    /* Style du menu latéral interactif */
+    .nav-item { cursor: pointer; transition: background 0.2s; }
+    .nav-item:hover { background: rgba(255, 255, 255, 0.05); }
+    .nav-item.active { background: rgba(255, 255, 255, 0.15); font-weight: bold; }
+    
+    /* Gestion de l'affichage des onglets */
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+  </style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <div class="brand">HBntory Admin</div>
+    <ul class="nav-menu">
+      <li class="nav-item active" onclick="switchTab('config-tab', this)">⚙️ Configuration</li>
+      <li class="nav-item" onclick="switchTab('users-tab', this)">👥 Utilisateurs</li>
+      <li class="nav-item" onclick="switchTab('stocks-tab', this)">📦 Stocks</li>
+    </ul>
+  </div>
+
+  <div class="main-content">
+    <div class="header-bar">
+      <h1 class="header-title" style="margin: 0;" id="tab-title">Configuration & Création</h1>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <span class="badge-admin">Administrateur</span>
+        <button onclick="logout()" class="btn btn-danger" style="padding: 8px 16px; font-size: 0.85rem;">Déconnexion</button>
+      </div>
+    </div>
+
+    <div id="alert-msg" class="alert-box"></div>
+
+    <div id="config-tab" class="tab-content active">
+      <div class="grid-2">
+        <div class="card">
+          <h3>👤 Créer un nouvel utilisateur</h3>
+          <form id="create-user-form">
+            <div class="form-group">
+              <label for="new-username">Identifiant</label>
+              <input type="text" id="new-username" placeholder="ex: employe_paris" required>
+            </div>
+
+            <div class="form-group">
+              <label for="new-password">Mot de passe</label>
+              <input type="password" id="new-password" placeholder="••••••••" required>
+            </div>
+
+            <div class="form-group">
+              <label for="new-role">Rôle</label>
+              <select id="new-role" required>
+                <option value="employee">Employé</option>
+                <option value="admin">Administrateur</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="new-user-branch">Boutique attribuée (Optionnel)</label>
+              <select id="new-user-branch">
+                <option value="">-- Aucune / Toutes --</option>
+              </select>
+            </div>
+
+            <button type="submit" class="btn" style="width: 100%; margin-top: 10px;">Créer le compte</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h3>🏪 Ajouter une boutique</h3>
+          <form id="create-branch-form">
+            <div class="form-group">
+              <label for="branch-name">Nom de la boutique</label>
+              <input type="text" id="branch-name" placeholder="ex: HBntory Lyon" required>
+            </div>
+            <button type="submit" class="btn" style="width: 100%; margin-top: 10px;">Créer la boutique</button>
+          </form>
+
+          <h3 style="margin-top: 24px;">🏢 Boutiques actuelles</h3>
+          <ul id="branches-list" style="list-style: none; padding: 0; margin: 0;">
+            <li style="color: #888;">Chargement...</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div id="users-tab" class="tab-content">
+      <div class="card">
+        <h3>📋 Liste des utilisateurs enregistrés</h3>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Identifiant</th>
+              <th>Rôle</th>
+              <th>Boutique</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="users-table-body">
+            <tr><td colspan="5" style="text-align: center;">Chargement des utilisateurs...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="stocks-tab" class="tab-content">
+      <div class="card">
+        <h3>📦 Vue globale de tous les stocks</h3>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Boutique</th>
+              <th>Produit (SKU)</th>
+              <th>Quantité</th>
+            </tr>
+          </thead>
+          <tbody id="inventory-table-body">
+            <tr><td colspan="3" style="text-align: center;">Chargement du stock...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const API_URL = "http://127.0.0.1:8002";
+    const token = localStorage.getItem('adminToken') || localStorage.getItem('userToken');
+
+    let branchesMap = {};
+
+    if (!token) {
+      window.location.href = 'login.html';
+    }
+
+    // --- GESTION DES ONGLETS ---
+    function switchTab(tabId, element) {
+      // Masquer tous les onglets
+      document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+
+      // Activer l'onglet sélectionné
+      document.getElementById(tabId).classList.add('active');
+      element.classList.add('active');
+
+      // Mettre à jour le titre principal
+      const titles = {
+        'config-tab': 'Configuration & Création',
+        'users-tab': 'Gestion des Utilisateurs',
+        'stocks-tab': 'Aperçu des Stocks'
+      };
+      document.getElementById('tab-title').textContent = titles[tabId];
+    }
+
+    function showAlert(message, type = 'success') {
+      const alertMsg = document.getElementById('alert-msg');
+      alertMsg.textContent = message;
+      alertMsg.className = `alert-box alert-${type}`;
+      alertMsg.style.display = 'block';
+      setTimeout(() => { alertMsg.style.display = 'none'; }, 4000);
+    }
+
+    async function loadBranches() {
+      try {
+        const res = await fetch(`${API_URL}/branches`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.status === 401 || res.status === 403) return logout();
+
+        const branches = await res.json();
+        
+        branchesMap = {};
+        branches.forEach(b => { branchesMap[b.id] = b.name; });
+
+        document.getElementById('new-user-branch').innerHTML = '<option value="">-- Aucune / Toutes --</option>' + 
+          branches.map(b => `<option value="${b.id}">${escapeHTML(b.name)} (ID: ${b.id})</option>`).join('');
+
+        const list = document.getElementById('branches-list');
+        list.innerHTML = branches.length === 0 ? '<li style="color:#888;">Aucune boutique.</li>' :
+          branches.map(b => `<li style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1);"><strong>ID ${b.id}</strong>: ${escapeHTML(b.name)}</li>`).join('');
+      } catch (err) {
+        showAlert("Erreur lors du chargement des boutiques", "error");
+      }
+    }
+
+    async function loadUsers() {
+      try {
+        const res = await fetch(`${API_URL}/users`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.status === 401 || res.status === 403) return logout();
+
+        const users = await res.json();
+        const body = document.getElementById('users-table-body');
+
+        body.innerHTML = users.length === 0 ? '<tr><td colspan="5" style="text-align:center;">Aucun utilisateur.</td></tr>' :
+          users.map(u => `
+            <tr>
+              <td>#${u.id}</td>
+              <td><strong>${escapeHTML(u.username)}</strong></td>
+              <td><span class="badge-${u.role === 'admin' ? 'admin' : 'employee'}">${u.role}</span></td>
+              <td>${u.branch_id ? escapeHTML(branchesMap[u.branch_id] || ('Boutique #' + u.branch_id)) : 'Toutes'}</td>
+              <td>
+                ${u.username !== 'admin' ? `<button onclick="deleteUser(${u.id})" class="btn btn-danger" style="padding: 4px 8px; font-size: 0.8rem;">Supprimer</button>` : '<em style="color:#888;">Protégé</em>'}
+              </td>
+            </tr>
+          `).join('');
+      } catch (err) {
+        showAlert("Erreur lors du chargement des utilisateurs", "error");
+      }
+    }
+
+    async function loadAllInventory() {
+      try {
+        const res = await fetch(`${API_URL}/inventories`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const items = await res.json();
+          const body = document.getElementById('inventory-table-body');
+          
+          if (!body) return;
+
+          body.innerHTML = items.length === 0 ? '<tr><td colspan="3" style="text-align:center;">Aucun article en stock.</td></tr>' :
+            items.map(item => {
+              const branchName = branchesMap[item.branch_id] ? escapeHTML(branchesMap[item.branch_id]) : `Boutique #${item.branch_id}`;
+              return `
+                <tr>
+                  <td><strong>${branchName}</strong></td>
+                  <td><strong>${escapeHTML(item.product_id)}</strong></td>
+                  <td><span style="color:#4ade80; font-weight:bold;">${item.quantity}</span> unités</td>
+                </tr>
+              `;
+            }).join('');
+        }
+      } catch (err) {
+        console.error("Erreur chargement inventaire:", err);
+      }
+    }
+
+    document.getElementById('create-user-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('new-username').value.trim();
+      const password = document.getElementById('new-password').value;
+      const role = document.getElementById('new-role').value;
+      const branchVal = document.getElementById('new-user-branch').value;
+
+      try {
+        const res = await fetch(`${API_URL}/register`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password, role, branch_id: branchVal ? parseInt(branchVal) : null })
+        });
+
+        if (res.ok) {
+          showAlert("✅ Compte créé avec succès !");
+          document.getElementById('create-user-form').reset();
+          loadUsers();
+        } else {
+          const err = await res.json();
+          showAlert("❌ " + (err.detail || "Erreur création"), "error");
+        }
+      } catch (err) {
+        showAlert("Erreur réseau lors de la création", "error");
+      }
+    });
+
+    document.getElementById('create-branch-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('branch-name').value.trim();
+      try {
+        const res = await fetch(`${API_URL}/branches`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name })
+        });
+
+        if (res.ok) {
+          showAlert("✅ Boutique ajoutée !");
+          document.getElementById('branch-name').value = '';
+          await loadBranches();
+          loadUsers();
+          loadAllInventory();
+        } else {
+          const err = await res.json();
+          showAlert("❌ " + (err.detail || "Erreur boutique"), "error");
+        }
+      } catch (err) {
+        showAlert("Erreur réseau lors de la création", "error");
+      }
+    });
+
+    async function deleteUser(userId) {
+      if (!confirm("Voulez-vous vraiment supprimer cet utilisateur ?")) return;
+      try {
+        const res = await fetch(`${API_URL}/users/${userId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          showAlert("Utilisateur supprimé !");
+          loadUsers();
+        }
+      } catch (err) {
+        showAlert("Erreur réseau", "error");
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('userToken');
+      window.location.href = 'login.html';
+    }
+
+    function escapeHTML(str) {
+      return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+    }
+
+    async function init() {
+      await loadBranches();
+      loadUsers();
+      loadAllInventory();
+    }
+
+    init();
+  </script>
+</body>
+</html>

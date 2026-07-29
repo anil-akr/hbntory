@@ -47,3 +47,4 @@ class InventoryResponse(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+UserResponse.model_rebuild()

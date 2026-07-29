@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HBntory - Espace Employé</title>
+  <link rel="stylesheet" href="backoffice.css">
+  <style>
+    .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .badge-employee { background: rgba(34, 197, 94, 0.2); color: #4ade80; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; border: 1px solid rgba(34, 197, 94, 0.4); }
+    .alert-box { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; display: none; }
+    .alert-success { background: rgba(34, 197, 94, 0.15); border: 1px solid #22c55e; color: #4ade80; }
+    .alert-error { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #fca5a5; }
+  </style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <div class="brand">HBntory Stock</div>
+    <ul class="nav-menu">
+      <li class="nav-item active">📦 Gestion des Stocks</li>
+    </ul>
+  </div>
+
+  <div class="main-content">
+    <div class="header-bar">
+      <h1 class="header-title" style="margin: 0;">Gestion des Stocks</h1>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <span class="badge-employee">Employé</span>
+        <button onclick="logout()" class="btn btn-danger" style="padding: 8px 16px; font-size: 0.85rem;">Déconnexion</button>
+      </div>
+    </div>
+
+    <div id="alert-msg" class="alert-box"></div>
+
+    <div class="card">
+      <h3>✏️ Mettre à jour le stock d'une boutique</h3>
+      <form id="update-stock-form" style="display: grid; grid-template-columns: 1fr 1fr 1fr 140px; gap: 12px; align-items: flex-end;">
+        
+        <div class="form-group" style="margin: 0;">
+          <label for="stock-branch-select">Boutique</label>
+          <select id="stock-branch-select" required>
+            <option value="">Chargement...</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin: 0;">
+          <label for="stock-product-id">SKU / Nom du Produit</label>
+          <input type="text" id="stock-product-id" placeholder="Ex: PROD-123" required>
+        </div>
+
+        <div class="form-group" style="margin: 0;">
+          <label for="stock-quantity">Quantité en stock</label>
+          <input type="number" id="stock-quantity" min="0" placeholder="0" required>
+        </div>
+
+        <button type="submit" class="btn">Enregistrer</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Consulter le stock d'une boutique</h3>
+      <div style="display: flex; gap: 12px; align-items: flex-end;">
+        <div class="form-group" style="flex: 1; margin: 0;">
+          <label for="search-branch-select">Sélectionner la boutique</label>
+          <select id="search-branch-select">
+            <option value="">-- Choisir une boutique --</option>
+          </select>
+        </div>
+        <button onclick="loadInventory()" class="btn">Afficher le stock</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Stock Actuel</h3>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>ID Produit (SKU)</th>
+            <th>Quantité en Stock</th>
+          </tr>
+        </thead>
+        <tbody id="stock-table-body">
+          <tr><td colspan="2" style="text-align: center;">Choisissez une boutique et cliquez sur "Afficher le stock".</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <script>
+    const API_URL = "http://127.0.0.1:8002";
+    const token = localStorage.getItem('userToken');
+
+    if (!token) {
+      window.location.href = 'login.html';
+    }
+
+    function showAlert(message, type = 'success') {
+      const alertMsg = document.getElementById('alert-msg');
+      alertMsg.textContent = message;
+      alertMsg.className = `alert-box alert-${type}`;
+      alertMsg.style.display = 'block';
+      setTimeout(() => { alertMsg.style.display = 'none'; }, 4000);
+    }
+
+    // Charger les boutiques dans les menus déroulants
+    async function loadBranchesDropdowns() {
+      try {
+        const res = await fetch(`${API_URL}/branches`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.status === 401) return logout();
+
+        const branches = await res.json();
+        
+        const optionsHtml = '<option value="">-- Choisir une boutique --</option>' + 
+          branches.map(b => `<option value="${b.id}">${escapeHTML(b.name)}</option>`).join('');
+
+        document.getElementById('stock-branch-select').innerHTML = optionsHtml;
+        document.getElementById('search-branch-select').innerHTML = optionsHtml;
+      } catch (err) {
+        showAlert("Erreur de chargement des boutiques", "error");
+      }
+    }
+
+    // Consulter le stock de la boutique sélectionnée
+    async function loadInventory() {
+      const branchId = document.getElementById('search-branch-select').value;
+      if (!branchId) return showAlert("Veuillez choisir une boutique dans la liste", "error");
+
+      try {
+        const res = await fetch(`${API_URL}/inventories/${branchId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const items = await res.json();
+        const body = document.getElementById('stock-table-body');
+
+        if (items.length === 0) {
+          body.innerHTML = '<tr><td colspan="2" style="text-align:center;">Aucun produit en stock pour cette boutique.</td></tr>';
+          return;
+        }
+
+        body.innerHTML = items.map(i => `
+          <tr>
+            <td><strong>${escapeHTML(i.product_id)}</strong></td>
+            <td><span style="color:var(--primary); font-weight:bold;">${i.quantity}</span> unités</td>
+          </tr>
+        `).join('');
+
+      } catch (err) {
+        showAlert("Erreur lors du chargement de l'inventaire", "error");
+      }
+    }
+
+    // Soumission du formulaire d'ajout/modification
+    document.getElementById('update-stock-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const branch_id = parseInt(document.getElementById('stock-branch-select').value);
+      const product_id = document.getElementById('stock-product-id').value.trim();
+      const quantity = parseInt(document.getElementById('stock-quantity').value);
+
+      if (!branch_id) return showAlert("Veuillez sélectionner une boutique", "error");
+
+      try {
+        const res = await fetch(`${API_URL}/inventories`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ branch_id, product_id, quantity })
+        });
+
+        if (res.ok) {
+          showAlert("Stock mis à jour avec succès !");
+          document.getElementById('stock-product-id').value = '';
+          document.getElementById('stock-quantity').value = '';
+          
+          // Sélectionne automatiquement la boutique dans le filtre de recherche et met à jour
+          document.getElementById('search-branch-select').value = branch_id;
+          loadInventory();
+        } else {
+          const data = await res.json();
+          showAlert(data.detail || "Erreur de mise à jour du stock", "error");
+        }
+      } catch (err) {
+        showAlert("Erreur réseau lors de la mise à jour", "error");
+      }
+    });
+
+    function logout() {
+      localStorage.removeItem('userToken');
+      window.location.href = 'login.html';
+    }
+
+    function escapeHTML(str) {
+      return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+    }
+
+    // Initialisation
+    loadBranchesDropdowns();
+  </script>
+</body>
+</html>
