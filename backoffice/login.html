@@ -51,9 +51,9 @@
           const data = await res.json();
           localStorage.setItem('userToken', data.access_token);
 
-          // Redirection selon le rôle porté par le jeton, et non selon le nom
-          // saisi : un compte administrateur nommé autrement arrive quand même
-          // sur le bon écran. Le serveur revérifie les droits à chaque requête.
+          // Redirect on the role carried by the token, not on the name typed in:
+          // an admin account named differently still lands on the right screen.
+          // The server re-checks the rights on every request anyway.
           const role = JSON.parse(atob(data.access_token.split('.')[1])).role;
 
           if (role === 'admin') {

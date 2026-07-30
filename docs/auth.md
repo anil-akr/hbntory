@@ -114,6 +114,12 @@ Points clés de la logique (dans `main.py`) :
 - **Cloisonnement par boutique :** un employé ne peut lire/modifier que le stock de
   `current_user.branch_id`. Toute action sur une autre boutique renvoie **403**.
 - **Garde-fou métier :** une quantité négative est refusée (**400**).
+- **Compte administrateur protégé :** le sujet prévoit **un seul** administrateur.
+  L'API refuse donc (**403**) de le désactiver, de le modifier, de créer un second
+  compte `admin` et de promouvoir un employé en `admin`. L'interface grise déjà ce
+  compte (« Protégé »), mais la règle est appliquée **côté API** : sans cela, un
+  appel direct à `DELETE /users/1` désactivait le seul administrateur et fermait
+  la gestion des utilisateurs définitivement.
 
 Exemple (empêcher un employé d'agir sur une autre boutique) :
 

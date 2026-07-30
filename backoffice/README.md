@@ -46,8 +46,16 @@ cd backoffice && python3 seed_data.py && cd ..
 Comptes créés : `admin` / `admin123` et `employe_paris` / `employe123`.
 Le script est rejouable : il remet le stock aux valeurs de référence.
 
+`create_admin.py` fait la même chose pour le seul compte administrateur, sans
+toucher aux boutiques ni au stock. Utile quand la base existe déjà et qu'on veut
+uniquement s'assurer que l'admin est présent :
+
+```bash
+cd backoffice && python3 create_admin.py
+```
+
 ## Tests
 
 ```bash
-cd backoffice && python3 test_backoffice.py    # 27 tests
+cd backoffice && python3 test_backoffice.py    # 34 tests
 ```

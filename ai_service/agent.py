@@ -43,6 +43,11 @@ SYSTEM_PROMPT = (
     "names, prices, stock quantities, or branch availability. "
     "If the tools do not provide the needed information, say clearly that the "
     "information is not available. "
+    "Always answer in the language of the question. "
+    "Write plain text only: no Markdown, no asterisks for bold, no pipe "
+    "tables. To list several branches or products, use one short line per "
+    "item, starting with a dash. The client page displays your answer as raw "
+    "text, so any formatting mark would show up as-is. "
     "When calling a tool, always produce a complete and valid JSON object for "
     "the arguments, with every brace closed."
 )
@@ -135,8 +140,14 @@ async def answer_question(question: str) -> str:
     """Answer one question using the model and the MCP tools."""
     client = Groq(api_key=_get_api_key())
 
-    async with streamable_http_client(MCP_SERVER_URL) as (read, write, _):
-        async with ClientSession(read, write) as session:
+    # The client yields three values: the two streams, plus a getter for the
+    # session id that we do not need here.
+    async with streamable_http_client(MCP_SERVER_URL) as (
+        read_stream,
+        write_stream,
+        _unused_session_id,
+    ):
+        async with ClientSession(read_stream, write_stream) as session:
             await session.initialize()
             tools = _to_groq_tools((await session.list_tools()).tools)
 
@@ -145,7 +156,7 @@ async def answer_question(question: str) -> str:
                 {"role": "user", "content": question},
             ]
 
-            for _ in range(MAX_TOOL_ROUNDS):
+            for tool_round in range(MAX_TOOL_ROUNDS):
                 response = _ask_model(client, messages, tools)
                 message = response.choices[0].message
 

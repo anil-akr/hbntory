@@ -542,14 +542,15 @@ ol.list > li::before {
           <li>Mots de passe hachés avec bcrypt, jamais en clair</li>
           <li>Authentification par jeton JWT vérifié à chaque requête</li>
           <li>Autorisations appliquées dans l'API, pas dans l'interface</li>
+          <li>Compte admin protégé par l'API : ni désactivable, ni duplicable</li>
           <li>Suppression d'un compte en soft delete : la trace reste, la connexion est refusée</li>
         </ul>
       </div>
       <div>
         <div class="col-head">Tests</div>
         <ul class="list">
-          <li>Backoffice : 21 tests automatisés</li>
-          <li>Serveur MCP : 4 cas sur 4, et 9 combinaisons sur 9 avec la vraie base</li>
+          <li>Backoffice : 34 tests automatisés</li>
+          <li>Serveur MCP : 9 cas testés en direct, produits et stock, sans clé IA</li>
           <li>Service IA : contrat REST validé</li>
           <li>API Produit lente ou en panne : message clair, aucun plantage</li>
         </ul>

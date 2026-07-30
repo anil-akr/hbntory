@@ -46,6 +46,9 @@ Chaque service ne parle qu'à son voisin direct. Le Client Web ne connaît que l
 - Boutiques.
 - Stock : identifiant de boutique + SKU du produit + quantité.
 Aucun détail produit (nom, prix, description, image) n'est stocké localement.
+
+Le détail des tables, des contraintes et de l'endroit où chaque règle est
+appliquée se trouve dans [`database.md`](database.md).
  
 ## 4. Données provenant de l'API produit externe
  

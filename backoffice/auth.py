@@ -36,23 +36,21 @@ def create_access_token(data: dict) -> str:
     )
     to_encode.update({"exp": expire})
 
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
 def verify_token(token: str):
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload
+        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except jwt.PyJWTError:
         return None
 
 
 def authenticate_user(db: Session, username: str, password: str):
-    """Vérifie un couple identifiant / mot de passe pour la connexion.
+    """Check a username / password pair at login.
 
-    Renvoie l'utilisateur si tout est bon, sinon False. Un compte supprimé
-    (soft delete) est traité comme inexistant : il ne peut plus se connecter.
+    Return the user when both are valid, False otherwise. A soft-deleted
+    account is treated as non-existent: it can no longer sign in.
     """
     user = (
         db.query(models.User)
@@ -82,9 +80,8 @@ def get_current_user(
             detail="Jeton invalide",
         )
 
-    # Les comptes supprimés sont exclus ici aussi : un jeton émis avant la
-    # suppression devient donc inutilisable immédiatement, sans attendre son
-    # expiration.
+    # Deleted accounts are excluded here too, so a token issued before the
+    # deletion stops working immediately instead of lasting until it expires.
     user = (
         db.query(models.User)
         .filter(models.User.username == username, models.User.deleted_at.is_(None))

@@ -3,7 +3,7 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict
 
 
-# Shémas branche
+# Branch schemas
 class BranchCreate(BaseModel):
     name: str
 
@@ -14,11 +14,12 @@ class BranchResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-# Shémas utilisateur
+# User schemas
 class UserCreate(BaseModel):
     username: str
     password: str
-    role: str = "common"  # Safe default: never grant admin rights by omission
+    # Safe default: never grant admin rights just because the field was omitted
+    role: str = "common"
     branch_id: Optional[int] = None
 
 
@@ -27,13 +28,13 @@ class UserResponse(BaseModel):
     username: str
     role: str
     branch_id: Optional[int] = None
-    # Rempli uniquement pour un compte désactivé (soft delete) : l'interface
-    # affiche ainsi "désactivé" au lieu de faire disparaître la ligne.
+    # Only set for a deactivated account (soft delete), so the interface can
+    # show "deactivated" instead of making the row disappear.
     deleted_at: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)
 
 
-# Shémas inventaire
+# Inventory schemas
 class InventoryCreate(BaseModel):
     branch_id: int
     product_id: str

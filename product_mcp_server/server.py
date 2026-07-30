@@ -40,7 +40,7 @@ STOCK_FILE = os.path.join(os.path.dirname(__file__), "stock_data.json")
 STOCK_DB_PATH = os.environ.get("STOCK_DB_PATH")
 
 # The MCP server. The name is shown on the agent side. Host and port are
-# configurable: MCP_HOST (docker-compose sets 0.0.0.0) and MCP_PORT. The default
+# configurable: MCP_HOST (the Dockerfile sets 0.0.0.0) and MCP_PORT. The default
 # is 8010, not 8000, because the Backoffice already listens on 8000.
 mcp = FastMCP(
     "hbntory-products",

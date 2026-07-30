@@ -4,7 +4,7 @@ import auth
 
 db = SessionLocal()
 
-# Vérifie si l'admin existe déjà
+# Check whether the admin already exists
 admin = db.query(models.User).filter(models.User.username == "admin").first()
 
 if not admin:

@@ -1,89 +1,78 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Récupération des éléments du DOM
+    // 1. Grab the DOM elements
     const sendBtn = document.getElementById('send-btn');
     const userQueryInput = document.getElementById('user-query');
     const chatHistory = document.getElementById('chat-history');
 
-    // 2. Fonction principale d'envoi du message
+    const AI_SERVICE_URL = 'http://127.0.0.1:8001/ask';
+
+    // 2. Add one message to the conversation.
+    //    The text is inserted with textContent, never as HTML: a question or an
+    //    answer can therefore never be interpreted as markup. The CSS keeps the
+    //    line breaks of the answer (white-space: pre-wrap).
+    function appendMessage(cssClass, label, text) {
+        const messageElement = document.createElement('div');
+        messageElement.className = cssClass;
+
+        if (label) {
+            const labelElement = document.createElement('strong');
+            labelElement.textContent = label;
+            messageElement.appendChild(labelElement);
+            messageElement.appendChild(document.createElement('br'));
+        }
+
+        messageElement.appendChild(document.createTextNode(text));
+        chatHistory.appendChild(messageElement);
+
+        // Always keep the latest message visible
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+        return messageElement;
+    }
+
+    // 3. Main function: send the question and display the answer
     async function sendMessage() {
         const questionText = userQueryInput.value.trim();
-        
-        // On ne fait rien si le champ est vide
+
+        // Do nothing when the field is empty
         if (!questionText) return;
 
-        // Affiche la question de l'utilisateur
-        chatHistory.innerHTML += `
-            <div class="user-message">
-                <strong>Vous :</strong><br>${escapeHTML(questionText)}
-            </div>
-        `;
-
-        // Vide la zone de texte
+        appendMessage('user-message', 'Vous :', questionText);
         userQueryInput.value = '';
 
-        // Affiche l'indicateur de chargement
-        const loadingId = 'loading-' + Date.now();
-        chatHistory.innerHTML += `<div id="${loadingId}" class="loading">Recherche en cours...</div>`;
-        
-        // Fait défiler le tchat vers le bas
-        chatHistory.scrollTop = chatHistory.scrollHeight;
+        // Waiting feedback, removed as soon as the answer (or the error) is in.
+        // The button is disabled meanwhile, so one question cannot be sent twice.
+        const loadingElement = appendMessage('loading', '', 'Recherche en cours...');
+        sendBtn.disabled = true;
 
         try {
-            // Envoi de la requête au serveur Flask
-            const response = await fetch('http://127.0.0.1:8001/ask', {
+            const response = await fetch(AI_SERVICE_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ question: questionText })
             });
 
             const data = await response.json();
-
-            // Retirer le message de chargement
-            const loadingElement = document.getElementById(loadingId);
-            if (loadingElement) loadingElement.remove();
+            loadingElement.remove();
 
             if (response.ok) {
-                // Affiche la réponse de l'assistant
-                chatHistory.innerHTML += `
-                    <div class="ai-message">
-                        <strong>Assistant :</strong><br>${data.answer}
-                    </div>
-                `;
+                appendMessage('ai-message', 'Assistant :', data.answer);
             } else {
-                // Affiche une erreur renvoyée par le serveur
-                chatHistory.innerHTML += `
-                    <div class="error">
-                        ${data.error || 'Une erreur est survenue sur le serveur.'}
-                    </div>
-                `;
+                // Error returned by the service (for example the agent is down)
+                appendMessage('error', '', data.error || 'Une erreur est survenue sur le serveur.');
             }
         } catch (err) {
-            // Retirer le message de chargement en cas d'erreur réseau
-            const loadingElement = document.getElementById(loadingId);
-            if (loadingElement) loadingElement.remove();
-
-            chatHistory.innerHTML += `
-                <div class="error">
-                    Impossible de contacter le serveur Flask.
-                </div>
-            `;
+            // Network error, or the AI service is not running
+            loadingElement.remove();
+            appendMessage('error', '', "Impossible de contacter le service IA (port 8001).");
+        } finally {
+            sendBtn.disabled = false;
         }
-
-        // Fait défiler automatiquement vers le bas après la réponse
-        chatHistory.scrollTop = chatHistory.scrollHeight;
     }
 
-    // 3. Fonction de sécurité pour éviter l'injection de code HTML
-    function escapeHTML(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    // 4. Écouteur pour le clic sur le bouton Envoyer
+    // 4. Listener for the Send button
     sendBtn.addEventListener('click', sendMessage);
 
-    // 5. Écouteur pour la touche Entrée
+    // 5. Listener for the Enter key
     userQueryInput.addEventListener('keydown', (event) => {
         if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();

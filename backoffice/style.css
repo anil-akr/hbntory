@@ -8,7 +8,7 @@ body {
     margin: 0;
 }
 
-/* Carte principale fixée en hauteur */
+/* Main card, fixed height */
 .container {
     background-color: #ffffff;
     padding: 20px;
@@ -16,7 +16,7 @@ body {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
     width: 100%;
     max-width: 500px;
-    height: 80vh; /* Hauteur fixe pour l'application */
+    height: 80vh; /* Fixed height for the app */
     display: flex;
     flex-direction: column;
 }
@@ -29,10 +29,10 @@ h1 {
     text-align: center;
 }
 
-/* Historique des messages déroulant */
+/* Scrollable message history */
 #chat-history {
-    flex: 1; /* Occupe tout l'espace disponible */
-    overflow-y: auto; /* Active le défilement */
+    flex: 1; /* Take all available space */
+    overflow-y: auto; /* Enable scrolling */
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -40,7 +40,9 @@ h1 {
     margin-bottom: 15px;
 }
 
-/* Bulles de messages */
+/* Message bubbles.
+   pre-wrap keeps the line breaks and the lists of the answer, which is
+   inserted as plain text (never as HTML). */
 .user-message {
     background-color: #eff6ff;
     border-left: 4px solid #3b82f6;
@@ -48,8 +50,9 @@ h1 {
     padding: 10px 14px;
     border-radius: 8px;
     font-size: 0.95rem;
-    align-self: flex-end; /* Alignement vers la droite ou pleine largeur */
+    align-self: flex-end; /* Right-aligned or full width */
     width: 90%;
+    white-space: pre-wrap;
 }
 
 .ai-message {
@@ -60,6 +63,7 @@ h1 {
     border-radius: 8px;
     font-size: 0.95rem;
     width: 90%;
+    white-space: pre-wrap;
 }
 
 .loading {
@@ -71,7 +75,7 @@ h1 {
     border-radius: 8px;
 }
 
-/* Zone de saisie en bas */
+/* Input area at the bottom */
 .input-container {
     display: flex;
     flex-direction: column;

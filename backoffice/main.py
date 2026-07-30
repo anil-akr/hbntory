@@ -3,25 +3,26 @@ import os
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
 from typing import List
+
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from datetime import datetime, timezone
 
 import models
 import schemas
 import auth
 from database import Base, engine, get_db
 
-# URL de l'API Produit externe (lecture seule). Le Backoffice affiche les infos
-# produit depuis cette API, jamais depuis la base locale.
+# URL of the external Product API (read-only). The Backoffice shows product
+# details from this API, never from the local database.
 PRODUCT_API_URL = os.environ.get("PRODUCT_API_URL", "http://localhost:5001")
 
 
 def _fetch_product_api(path: str):
-    """Appelle l'API Produit externe et renvoie son JSON, ou une erreur claire."""
+    """Call the external Product API and return its JSON, or a clear error."""
     try:
         with urllib.request.urlopen(f"{PRODUCT_API_URL}{path}", timeout=5) as response:
             return json.loads(response.read().decode("utf-8"))
@@ -33,6 +34,47 @@ def _fetch_product_api(path: str):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="API Produit injoignable.",
+        )
+
+
+def _require_admin(current_user: models.User) -> None:
+    """Stop the request with a 403 if the current user is not an admin.
+
+    Used by the purely administrative routes (user management). Stock handling
+    has its own, finer rules and does not go through this helper.
+    """
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès réservé aux administrateurs.",
+        )
+
+
+def _reject_admin_role(requested_role: str) -> None:
+    """Stop the request when it would create a second administrator.
+
+    The system has exactly one administrator, created by the seed script. The
+    interface never offers the admin role, and the API refuses it too, so the
+    rule does not depend on the interface.
+    """
+    if requested_role == "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Le rôle 'admin' ne peut pas être attribué : il n'existe qu'un seul administrateur.",
+        )
+
+
+def _protect_admin_account(target_user: models.User) -> None:
+    """Stop the request when it targets the single administrator account.
+
+    The interface already displays the admin row as "Protégé". The API enforces
+    the same rule, so the only administrator cannot be deactivated — which
+    would otherwise lock user management out for good.
+    """
+    if target_user.role == "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Le compte administrateur ne peut pas être modifié ni désactivé.",
         )
 
 
@@ -60,23 +102,20 @@ def register_user(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user),
 ):
-    # Seul l'admin peut créer des utilisateurs (le 1er admin vient du seed)
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Accès réservé aux administrateurs.",
-        )
+    # Only an admin creates users (the first admin comes from the seed script)
+    _require_admin(current_user)
+    _reject_admin_role(user.role)
 
-    db_user = (
+    existing_user = (
         db.query(models.User).filter(models.User.username == user.username).first()
     )
-    if db_user:
+    if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Ce nom d'utilisateur est déjà utilisé.",
         )
 
-    # Création de l'utilisateur avec son rôle et sa boutique
+    # Create the user with the role and branch chosen by the admin
     new_user = models.User(
         username=user.username,
         password_hash=auth.pwd_context.hash(user.password),
@@ -94,7 +133,7 @@ def register_user(
 def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
 ):
-    # authenticate_user refuse aussi les comptes supprimés (soft delete).
+    # authenticate_user also rejects soft-deleted accounts.
     user = auth.authenticate_user(db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(
@@ -103,9 +142,9 @@ def login_for_access_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Le rôle est placé dans le jeton pour que l'interface sache quel écran
-    # afficher. Les autorisations, elles, sont toujours revérifiées côté serveur
-    # à partir de la base : le contenu du jeton ne décide de rien.
+    # The role travels in the token so the web interface knows which screen to
+    # show. Authorization itself is always re-checked server-side against the
+    # database: nothing is decided from the token contents.
     access_token = auth.create_access_token(
         data={"sub": user.username, "role": user.role}
     )
@@ -114,15 +153,15 @@ def login_for_access_token(
 
 @app.get("/users/me", response_model=schemas.UserResponse, tags=["Administration"])
 def read_current_user(current_user: models.User = Depends(auth.get_current_user)):
-    """Renvoie l'utilisateur connecté (rôle et boutique assignée).
+    """Return the current user (role and assigned branch).
 
-    L'interface s'en sert pour afficher clairement sur quelle boutique
-    l'employé travaille, et pour ne lui proposer que celle-là.
+    The interface uses it to state clearly which branch the employee works on,
+    and to offer that branch only.
     """
     return current_user
 
 
-# GESTION BOUTIQUE
+# BRANCHES
 
 @app.post("/branches", response_model=schemas.BranchResponse, tags=["Boutiques"])
 def create_branch(
@@ -130,15 +169,15 @@ def create_branch(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user),
 ):
-    # Créer une boutique relève de la configuration, donc de l'administrateur.
+    # Creating a branch is configuration work, so it belongs to the admin.
     if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Seul un administrateur peut créer une boutique.",
         )
 
-    db_branch = db.query(models.Branch).filter(models.Branch.name == branch.name).first()
-    if db_branch:
+    existing_branch = db.query(models.Branch).filter(models.Branch.name == branch.name).first()
+    if existing_branch:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Une boutique avec ce nom existe déjà.",
@@ -158,17 +197,17 @@ def list_branches(
     return db.query(models.Branch).all()
 
 
-# GESTION STOCK
+# STOCK
 
 @app.get("/inventories", response_model=List[schemas.InventoryResponse], tags=["Stock"])
 def list_inventories(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user),
 ):
-    """Vue d'ensemble du stock.
+    """Overview of the stock.
 
-    L'administrateur voit toutes les boutiques (il supervise sans y toucher) ;
-    un employé ne reçoit que le stock de la sienne, comme sur les autres routes.
+    The admin sees every branch (supervising without touching it); an employee
+    only receives the stock of their own branch, as on every other route.
     """
     query = db.query(models.Inventory)
     if current_user.role != "admin":
@@ -182,7 +221,7 @@ def get_branch_inventory(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user),
 ):
-    # Les utilisateurs ne voient que le stock de leur propre boutique
+    # Users only see the stock of their own branch
     if current_user.role != "admin" and current_user.branch_id != branch_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -197,30 +236,30 @@ def update_or_create_stock(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user),
 ):
-    # L'administrateur ne peut pas gérer le stock
+    # The admin must not manage stock
     if current_user.role == "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Les administrateurs ne peuvent pas gérer le stock.",
         )
 
-    # L'employé ne peut gérer QUE le stock de sa propre boutique
+    # An employee may only manage the stock of their OWN branch
     if current_user.branch_id != inventory.branch_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Vous ne pouvez gérer que le stock de votre propre boutique.",
         )
 
-    # Vérification de la quantité (ne peut pas être négative)
+    # Quantity check: stock can never go negative
     if inventory.quantity < 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La quantité en stock ne peut pas être négative.",
         )
 
-    # Le produit doit exister dans le catalogue externe. La base ne stocke qu'un
-    # identifiant : elle est incapable de vérifier seule qu'il désigne un vrai
-    # produit, donc on demande à l'API Produit avant d'enregistrer du stock.
+    # The product must exist in the external catalog. The database only stores
+    # an identifier and cannot tell on its own whether it points to a real
+    # product, so we ask the Product API before recording any stock.
     try:
         _fetch_product_api(
             f"/api/v1/products/{urllib.parse.quote(inventory.product_id)}"
@@ -257,14 +296,14 @@ def update_or_create_stock(
     return db_inventory
 
 
-# PRODUITS (depuis l'API externe, jamais la base locale)
+# PRODUCTS (from the external API, never from the local database)
 
 @app.get("/products", tags=["Produits (API externe)"])
 def list_products_from_api(
     search: str = "",
     current_user: models.User = Depends(auth.get_current_user),
 ):
-    """Liste les produits depuis l'API Produit EXTERNE (nom, prix, etc.)."""
+    """List products from the EXTERNAL Product API (name, price, and so on)."""
     path = "/api/v1/products?limit=100"
     if search:
         path += "&q=" + urllib.parse.quote(search)
@@ -276,7 +315,7 @@ def get_product_from_api(
     identifier: str,
     current_user: models.User = Depends(auth.get_current_user),
 ):
-    """Détails d'un produit depuis l'API Produit EXTERNE (par SKU ou id)."""
+    """Details of one product from the EXTERNAL Product API (by SKU or id)."""
     return _fetch_product_api(f"/api/v1/products/{urllib.parse.quote(identifier)}")
 
 
@@ -287,12 +326,8 @@ def list_users(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user),
 ):
-    # Seul l'administrateur peut voir la liste des utilisateurs
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Accès réservé aux administrateurs.",
-        )
+    # Only the admin may list users
+    _require_admin(current_user)
     return db.query(models.User).all()
 
 
@@ -302,22 +337,18 @@ def delete_user(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user),
 ):
-    # Seul l'admin peut supprimer un utilisateur
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Accès réservé aux administrateurs.",
-        )
+    # Only the admin may delete a user
+    _require_admin(current_user)
 
-    # Recherche de l'utilisateur en base
     user_to_delete = db.query(models.User).filter(models.User.id == user_id).first()
     if not user_to_delete:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Utilisateur non trouvé.",
         )
+    _protect_admin_account(user_to_delete)
 
-    # Application du Soft Delete
+    # Soft delete: the row stays, only the deletion date is set
     user_to_delete.deleted_at = datetime.now(timezone.utc)
     db.commit()
 
@@ -331,26 +362,23 @@ def update_user(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user),
 ):
-    # Vérifie que c'est bien un admin
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Accès réservé aux administrateurs.",
-        )
+    # Only the admin may modify a user
+    _require_admin(current_user)
 
-    # Cherche l'utilisateur dans la base
-    db_user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not db_user:
+    user_to_update = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user_to_update:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Utilisateur non trouvé.",
         )
+    _protect_admin_account(user_to_update)
+    _reject_admin_role(user_update.role)
 
-    # Met à jour les champs (rôle, boutique, ET mot de passe)
-    db_user.role = user_update.role
-    db_user.branch_id = user_update.branch_id
-    db_user.password_hash = auth.pwd_context.hash(user_update.password)
-    
+    # Update the fields: role, branch AND password
+    user_to_update.role = user_update.role
+    user_to_update.branch_id = user_update.branch_id
+    user_to_update.password_hash = auth.pwd_context.hash(user_update.password)
+
     db.commit()
-    db.refresh(db_user)
-    return db_user
+    db.refresh(user_to_update)
+    return user_to_update

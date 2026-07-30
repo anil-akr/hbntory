@@ -27,16 +27,7 @@ body {
   display: flex;
 }
 
-/* ================= PAGE DE LOGIN ================= */
-.login-wrapper {
-  width: 100vw;
-  height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
-}
-
+/* ================= LOGIN PAGE ================= */
 .login-card {
   background: var(--bg-card);
   border: 1px solid var(--border);

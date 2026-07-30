@@ -24,7 +24,8 @@ Les informations produit ne sont pas stockées localement : elles proviennent d'
 | **API Produit** | *(fournie)* | — | Catalogue produit externe, lecture seule |
 
 Documentation d'architecture et décisions : [`docs/`](docs/) (`architecture.md`,
-`communication-decisions.md`, `mvp.md`). Authentification & autorisation :
+`communication-decisions.md`, `mvp.md`). Schéma de la base :
+[`docs/database.md`](docs/database.md). Authentification & autorisation :
 [`docs/auth.md`](docs/auth.md).
 
 ### Organisation du dépôt
@@ -157,8 +158,19 @@ Projet réalisé en binôme :
   claire (502/503) au lieu d'inventer. Conséquence assumée : **enregistrer du stock
   exige que l'API réponde**, car le SKU est validé auprès du catalogue avant
   écriture (un identifiant inconnu est refusé en 400).
-- **Groq (offre gratuite) :** quotas et limites de débit ; certaines IP (VPN) peuvent
-  être bloquées par Cloudflare (403). Chaque membre utilise sa propre clé.
+- **Groq (offre gratuite) :** quotas et limites de débit ; certaines IP (VPN,
+  datacenter) sont bloquées par Cloudflare **avant** toute authentification —
+  l'API répond alors `403 Access denied. Please check your network settings.`
+  même avec une clé valide. Il faut donc lancer le Service IA depuis une
+  connexion sans VPN. Chaque membre utilise sa propre clé.
+- **Réutiliser le nom d'un compte désactivé est refusé (400) :** `username` est
+  unique et la ligne d'un compte désactivé reste en base. Conséquence assumée du
+  soft delete ; pour recréer « paul », il faut choisir un autre identifiant.
+- **Pas de réactivation :** aucun endpoint ne remet `deleted_at` à `NULL`. Une
+  désactivation est définitive côté interface.
+- **Boutique ou SKU inconnu, côté outils de stock :** les outils renvoient une
+  liste vide plutôt qu'une erreur explicite. L'agent répond donc qu'il ne trouve
+  rien, sans distinguer « boutique inexistante » de « boutique sans stock ».
 - **Dépendance `passlib` :** `passlib` 1.7.4 n'est plus maintenu ; `bcrypt` est
   épinglé `< 4.1` dans `requirements.txt` pour rester compatible.
 - **Clé de signature :** `SECRET_KEY` a une valeur de **développement** par défaut ;

@@ -105,11 +105,11 @@
       setTimeout(() => { alertMsg.style.display = 'none'; }, 4000);
     }
 
-    // Boutique assignée à l'employé connecté (remplie au chargement).
+    // Branch assigned to the signed-in employee (filled on load).
     let myBranchId = null;
 
-    // Un employé ne travaille que sur SA boutique : on ne lui propose qu'elle,
-    // au lieu de la liste complète qui ferait échouer l'envoi en 403.
+    // An employee only works on THEIR branch, so we offer that one alone
+    // instead of the full list, which would fail the request with a 403.
     async function loadMyBranch() {
       try {
         const meRes = await fetch(`${API_URL}/users/me`, {
@@ -134,7 +134,7 @@
         document.getElementById('stock-branch-select').innerHTML = optionHtml;
         document.getElementById('search-branch-select').innerHTML = optionHtml;
 
-        // Rappel visible de la boutique sur laquelle l'employé opère.
+        // Visible reminder of the branch the employee is working on.
         document.querySelector('.badge-employee').textContent = `Employé — ${myBranch.name}`;
 
         loadInventory();
@@ -143,8 +143,8 @@
       }
     }
 
-    // Le nom commercial vient de l'API Produit externe, jamais de notre base :
-    // celle-ci ne stocke que le SKU.
+    // The product name comes from the external Product API, never from our
+    // database, which only stores the SKU.
     async function fetchProductName(sku) {
       try {
         const res = await fetch(`${API_URL}/products/${encodeURIComponent(sku)}`, {
@@ -157,7 +157,7 @@
       }
     }
 
-    // Consulter le stock de la boutique sélectionnée
+    // Load the stock of the selected branch
     async function loadInventory() {
       const branchId = document.getElementById('search-branch-select').value;
       if (!branchId) return showAlert("Veuillez choisir une boutique dans la liste", "error");
@@ -190,7 +190,7 @@
       }
     }
 
-    // Soumission du formulaire d'ajout/modification
+    // Submit handler for the add/update form
     document.getElementById('update-stock-form').addEventListener('submit', async (e) => {
       e.preventDefault();
 
@@ -215,7 +215,7 @@
           document.getElementById('stock-product-id').value = '';
           document.getElementById('stock-quantity').value = '';
           
-          // Sélectionne automatiquement la boutique dans le filtre de recherche et met à jour
+          // Select the branch in the search filter and refresh the table
           document.getElementById('search-branch-select').value = branch_id;
           loadInventory();
         } else {
@@ -236,7 +236,7 @@
       return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
     }
 
-    // Initialisation
+    // Start-up
     loadMyBranch();
   </script>
 </body>

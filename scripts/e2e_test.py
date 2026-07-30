@@ -23,13 +23,11 @@ sys.path.insert(0, REPO_ROOT)
 
 # Imported after sys.path is set, so the script runs from anywhere. Importing
 # the agent also loads the .env file, which is where the API key lives.
+# MCP_SERVER_URL comes from the agent itself, so the test can never wait on a
+# different port than the one the agent will actually call.
 from ai_service.agent import MCP_SERVER_URL, ask  # noqa: E402
 
 PRODUCT_API_URL = os.environ.get("PRODUCT_API_URL", "http://localhost:5001")
-
-# Reuse the agent's own URL, so the test can never wait on a different port
-# than the one the agent will actually call.
-MCP_URL = MCP_SERVER_URL
 
 # One question per supported type (see ai_service/supported_questions.md).
 QUESTIONS = [
@@ -77,21 +75,20 @@ def main() -> int:
     # Reuse an MCP server that is already running (typical when the whole stack
     # is up), otherwise start one for the duration of the test.
     mcp_server = None
-    if wait_until_up(MCP_URL, timeout_seconds=1):
-        print(f"Using the MCP server already running at {MCP_URL}.\n")
+    if wait_until_up(MCP_SERVER_URL, timeout_seconds=1):
+        print(f"Using the MCP server already running at {MCP_SERVER_URL}.\n")
     else:
         print("Starting the product MCP server...")
         mcp_server = subprocess.Popen(
             [sys.executable, "-m", "product_mcp_server.server"], cwd=REPO_ROOT
         )
-        if not wait_until_up(MCP_URL):
+        if not wait_until_up(MCP_SERVER_URL):
             print("ERROR: the MCP server did not start in time.")
             mcp_server.terminate()
             return 1
         print("MCP server ready.\n")
 
     try:
-
         failures = 0
         for question in QUESTIONS:
             print("=" * 70)

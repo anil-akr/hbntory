@@ -13,12 +13,12 @@
     .alert-success { background: rgba(34, 197, 94, 0.15); border: 1px solid #22c55e; color: #4ade80; }
     .alert-error { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #fca5a5; }
     
-    /* Style du menu latéral interactif */
+    /* Interactive side menu */
     .nav-item { cursor: pointer; transition: background 0.2s; }
     .nav-item:hover { background: rgba(255, 255, 255, 0.05); }
     .nav-item.active { background: rgba(255, 255, 255, 0.15); font-weight: bold; }
     
-    /* Gestion de l'affichage des onglets */
+    /* Tab display handling */
     .tab-content { display: none; }
     .tab-content.active { display: block; }
   </style>
@@ -63,8 +63,8 @@
             <div class="form-group">
               <label for="new-role">Rôle</label>
               <select id="new-role" required>
-                <!-- "common" est le rôle attendu partout ailleurs (seed, API,
-                     tests). Envoyer "employee" créerait un rôle fantôme. -->
+                <!-- "common" is the role expected everywhere else (seed, API, tests).
+                     Sending "employee" would create a ghost role. -->
                 <option value="common">Employé</option>
                 <option value="admin">Administrateur</option>
               </select>
@@ -149,17 +149,17 @@
       window.location.href = 'login.html';
     }
 
-    // --- GESTION DES ONGLETS ---
+    // --- TAB HANDLING ---
     function switchTab(tabId, element) {
-      // Masquer tous les onglets
+      // Hide every tab
       document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
       document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
 
-      // Activer l'onglet sélectionné
+      // Activate the selected tab
       document.getElementById(tabId).classList.add('active');
       element.classList.add('active');
 
-      // Mettre à jour le titre principal
+      // Update the main title
       const titles = {
         'config-tab': 'Configuration & Création',
         'users-tab': 'Gestion des Utilisateurs',
@@ -316,8 +316,8 @@
       }
     });
 
-    // Modification d'un compte : nouveau mot de passe et/ou nouvelle boutique.
-    // L'API attend l'utilisateur complet, on renvoie donc aussi son rôle.
+    // Update an account: new password and/or new branch. The API expects the
+    // whole user, so we send the role back as well.
     async function editUser(userId) {
       const users = await (await fetch(`${API_URL}/users`, {
         headers: { 'Authorization': `Bearer ${token}` }

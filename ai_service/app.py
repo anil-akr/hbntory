@@ -41,7 +41,7 @@ def ask_endpoint():
     data = request.get_json(silent=True) or {}
     question = (data.get("question") or "").strip()
     if not question:
-        return jsonify({"error": "Missing 'question' in request body."}), 400
+        return jsonify({"error": "Question manquante dans la requête."}), 400
 
     try:
         answer = ask(question)
@@ -51,9 +51,11 @@ def ask_endpoint():
         # flush=True so the message appears immediately, even when the output is
         # redirected to a file instead of a terminal.
         print(f"[error] agent failed: {error}", flush=True)
+        # The message is shown as-is on the public page, so it is written in
+        # French like the rest of the interface.
         return (
             jsonify(
-                {"error": "The assistant is temporarily unavailable. Please try again."}
+                {"error": "L'assistant est momentanément indisponible. Merci de réessayer."}
             ),
             502,
         )
@@ -63,5 +65,5 @@ def ask_endpoint():
 
 if __name__ == "__main__":
     # Development server. The client web page will POST to /ask.
-    # Binds to 127.0.0.1 for local dev; docker-compose sets AI_SERVICE_HOST=0.0.0.0.
+    # Binds to 127.0.0.1 for local dev; the Dockerfile sets AI_SERVICE_HOST=0.0.0.0.
     app.run(host=os.environ.get("AI_SERVICE_HOST", "127.0.0.1"), port=8001)
